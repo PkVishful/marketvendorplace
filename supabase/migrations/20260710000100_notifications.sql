@@ -497,3 +497,106 @@ $$;
 create trigger order_award_notify_insert
   after insert on eworks.order_award
   for each row execute function eworks.order_award_notify();
+
+-- ---------------------------------------------------------------------------
+-- The outbox worker contract. Two functions; no table grants.
+-- ---------------------------------------------------------------------------
+--
+-- s7 names pgmq. This is what pgmq is: SELECT ... FOR UPDATE SKIP LOCKED over
+-- a table. Competing workers claim disjoint sets without blocking each other.
+
+create or replace function eworks.claim_deliveries(
+  p_channel eworks.notification_channel,
+  p_limit   int,
+  p_worker  text
+)
+returns table (
+  delivery_id     bigint,
+  event_type      eworks.notification_event_type,
+  subject_id      uuid,
+  recipient_phone text
+)
+language sql
+security definer
+set search_path = eworks, public, extensions, pg_temp
+as $$
+  with due as (
+    select d.id
+      from eworks.notification_deliveries d
+     where d.channel = p_channel
+       and d.status in ('PENDING', 'FAILED')
+       and d.next_attempt_at <= now()
+     order by d.next_attempt_at
+     limit p_limit
+     for update skip locked
+  ),
+  claimed as (
+    update eworks.notification_deliveries d
+       set status = 'CLAIMED', claimed_at = now(), claimed_by = p_worker
+      from due
+     where d.id = due.id
+     returning d.id, d.notification_id
+  )
+  select c.id,
+         e.event_type,
+         coalesce(e.order_id, e.vendor_id),
+         u.phone
+    from claimed c
+    join eworks.notifications n   on n.id = c.notification_id
+    join eworks.notification_events e on e.id = n.event_id
+    join eworks.user_profiles u   on u.id = n.recipient_user_id;
+$$;
+
+-- Exponential backoff: 1, 4, 16, 64 minutes, then DEAD on the fifth failure.
+-- The ceiling is operational policy, not an IS-code rule, so it is a constant
+-- here rather than a row in eworks.settings.
+create or replace function eworks.complete_delivery(
+  p_delivery_id bigint,
+  p_ok          boolean,
+  p_error       text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = eworks, public, extensions, pg_temp
+as $$
+declare
+  v_attempts int;
+begin
+  if p_ok then
+    update eworks.notification_deliveries
+       set status = 'DELIVERED', delivered_at = now(), last_error = null
+     where id = p_delivery_id;
+    return;
+  end if;
+
+  update eworks.notification_deliveries
+     set attempts = attempts + 1,
+         last_error = p_error,
+         claimed_at = null,
+         claimed_by = null
+   where id = p_delivery_id
+   returning attempts into v_attempts;
+
+  -- DEAD is visible, never silent. `select * from notification_deliveries where
+  -- status = 'DEAD'` is the "who did we fail to reach" report, and for
+  -- REVEAL_WINDOW_OPEN that is a list of vendors about to lose their EMD.
+  if v_attempts >= 5 then
+    update eworks.notification_deliveries
+       set status = 'DEAD' where id = p_delivery_id;
+  else
+    update eworks.notification_deliveries
+       set status = 'FAILED',
+           next_attempt_at = now() + (interval '1 minute' * power(4, v_attempts - 1))
+     where id = p_delivery_id;
+  end if;
+end;
+$$;
+
+revoke all on function eworks.claim_deliveries(eworks.notification_channel, int, text) from public;
+revoke all on function eworks.complete_delivery(bigint, boolean, text) from public;
+
+grant execute on function eworks.claim_deliveries(eworks.notification_channel, int, text)
+  to eworks_notifier;
+grant execute on function eworks.complete_delivery(bigint, boolean, text)
+  to eworks_notifier;

@@ -574,3 +574,131 @@ select pg_temp.check('The delivery record proves when it was sent',
       and e.event_type = 'REVEAL_WINDOW_OPEN'
       and d.status = 'DELIVERED' and d.delivered_at is not null) = 1);
 rollback;
+
+-- ===========================================================================
+-- 12. The outbox. A DEAD delivery is never silently dropped -- for
+--     REVEAL_WINDOW_OPEN it is a vendor about to be forfeited unfairly.
+-- ===========================================================================
+begin;
+select pg_temp.make_draft_order('77777777-0000-0000-0000-0000000000c1');
+select pg_temp.float_it('77777777-0000-0000-0000-0000000000c1',
+  interval '2 hours', interval '1 hour');
+
+-- Vendors A and C are eligible, so the float enqueued two SMS deliveries.
+select pg_temp.check('Floating enqueued one PENDING SMS delivery per eligible vendor',
+  (select count(*) from eworks.notification_deliveries
+    where channel = 'SMS' and status = 'PENDING') = 2);
+
+set local role eworks_notifier;
+
+-- The worker holds no table grants at all. Everything arrives through the two
+-- functions, which are also the single place user_profiles.phone leaves the
+-- database -- so encrypting it later (security-gaps #5) touches one line.
+select pg_temp.check('The worker cannot read the deliveries table directly',
+  not has_table_privilege('eworks_notifier', 'eworks.notification_deliveries', 'SELECT'));
+
+select pg_temp.check('The worker cannot read the notifications feed',
+  not has_table_privilege('eworks_notifier', 'eworks.notifications', 'SELECT'));
+
+-- Stronger than the privilege bit: actually try it, as the worker.
+select pg_temp.check_raises('A direct read of the outbox by the worker is refused',
+  $$select 1 from eworks.notification_deliveries$$);
+
+select pg_temp.check_raises('A direct read of the feed by the worker is refused',
+  $$select 1 from eworks.notifications$$);
+
+create temp table claimed_a as
+  select * from eworks.claim_deliveries('SMS', 1, 'worker-a');
+
+select pg_temp.check('claim_deliveries returns one due delivery with a phone number',
+  (select count(*) from claimed_a where recipient_phone is not null) = 1);
+
+select pg_temp.check('The claimed delivery carries the event type and subject',
+  (select count(*) from claimed_a
+    where event_type = 'ORDER_FLOATED'
+      and subject_id = '77777777-0000-0000-0000-0000000000c1') = 1);
+
+-- SKIP LOCKED: a second worker sees the remaining row, never the one already
+-- claimed. Without SKIP LOCKED this would block, not return a disjoint set.
+create temp table claimed_b as
+  select * from eworks.claim_deliveries('SMS', 5, 'worker-b');
+
+select pg_temp.check('A second claim returns a disjoint set',
+  not exists (select 1 from claimed_a a join claimed_b b using (delivery_id)));
+
+select pg_temp.check('Between them the two workers claimed both deliveries',
+  (select count(*) from (select delivery_id from claimed_a
+                         union select delivery_id from claimed_b) u) = 2);
+
+set local role postgres;
+
+-- Asserting the outbox's state requires reading the outbox, which the worker
+-- may never do. Only the owner checks this.
+select pg_temp.check('Claimed rows are marked CLAIMED with their worker',
+  (select count(*) from eworks.notification_deliveries
+    where status = 'CLAIMED' and claimed_by in ('worker-a','worker-b')) = 2);
+
+
+-- Success, reported by the worker.
+set local role eworks_notifier;
+select eworks.complete_delivery((select delivery_id from claimed_a), true, null);
+set local role postgres;
+
+select pg_temp.check('A successful delivery is DELIVERED with a timestamp',
+  (select status = 'DELIVERED' and delivered_at is not null and last_error is null
+     from eworks.notification_deliveries
+    where id = (select delivery_id from claimed_a)));
+
+
+-- Failure, reported by the worker. Backoff: power(4, attempts-1) minutes, so
+-- the first retry is ~1 minute out, not 4 and not immediate.
+set local role eworks_notifier;
+select eworks.complete_delivery((select delivery_id from claimed_b), false, 'gateway timeout');
+set local role postgres;
+
+select pg_temp.check('A failed delivery is FAILED, retried later, with the error kept',
+  (select status = 'FAILED' and attempts = 1 and last_error = 'gateway timeout'
+       and next_attempt_at > now()
+     from eworks.notification_deliveries
+    where id = (select delivery_id from claimed_b)));
+
+select pg_temp.check('The first retry backs off about a minute, not four',
+  (select next_attempt_at < now() + interval '90 seconds'
+     from eworks.notification_deliveries
+    where id = (select delivery_id from claimed_b)));
+
+-- A claim released by a failure is claimable again.
+select pg_temp.check('A FAILED delivery releases its claim',
+  (select claimed_at is null and claimed_by is null
+     from eworks.notification_deliveries
+    where id = (select delivery_id from claimed_b)));
+
+
+-- Fail it to the ceiling. Five attempts, then DEAD. Never deleted.
+do $$
+declare v_id bigint;
+begin
+  select delivery_id into v_id from claimed_b;
+  for i in 2..5 loop
+    update eworks.notification_deliveries set status = 'CLAIMED' where id = v_id;
+    perform eworks.complete_delivery(v_id, false, 'gateway timeout');
+  end loop;
+end
+$$;
+
+select pg_temp.check('After five failures the delivery is DEAD, not deleted',
+  (select status = 'DEAD' and last_error is not null and attempts = 5
+     from eworks.notification_deliveries
+    where id = (select delivery_id from claimed_b)));
+
+-- DEAD is terminal. This row is the "who did we fail to reach" report, and for
+-- REVEAL_WINDOW_OPEN it names a vendor about to lose their EMD unfairly.
+select pg_temp.check('A DEAD delivery is never claimed again',
+  (select count(*) from eworks.claim_deliveries('SMS', 10, 'worker-c')
+    where delivery_id = (select delivery_id from claimed_b)) = 0);
+
+select pg_temp.check('A DEAD delivery still exists and is visible to an operator',
+  (select count(*) from eworks.notification_deliveries
+    where id = (select delivery_id from claimed_b) and status = 'DEAD') = 1);
+
+rollback;
