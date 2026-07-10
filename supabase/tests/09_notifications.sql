@@ -128,6 +128,15 @@ select set_config('app.user_id', null, true);  -- unauthenticated
 select pg_temp.check('An unauthenticated connection reads zero notifications',
   (select count(*) from eworks.notifications) = 0);
 
+-- Regression: these two policies once subqueried each other's RLS-enabled
+-- table, and every read of either raised "infinite recursion detected in
+-- policy". A plain successful read of BOTH tables in one statement is the
+-- cheapest possible guard against that returning.
+select set_config('app.user_id', '44444444-0000-0000-0000-00000000000a', true);
+select pg_temp.check('Joining notifications to its event does not recurse',
+  (select count(*) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id) = 1);
+
 set local role postgres;
 rollback;
 
