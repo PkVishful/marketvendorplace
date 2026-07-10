@@ -340,3 +340,108 @@ $$;
 
 revoke all on function eworks.emit_notification(
   eworks.notification_event_type, uuid, uuid, ltree, uuid[]) from public;
+
+
+-- ---------------------------------------------------------------------------
+-- Emission: AFTER triggers, not calls inside the functions
+-- ---------------------------------------------------------------------------
+--
+-- Triggers are unbypassable. A direct UPDATE to test_orders.status that skips
+-- float_order() still notifies. That matters because -- unlike order_bids,
+-- where eworks_authenticated holds no INSERT/UPDATE at all -- test_orders is
+-- directly writable by officers.
+--
+-- The order state machine and custody_seal() already set this precedent.
+
+create or replace function eworks.vendors_notify()
+returns trigger
+language plpgsql
+security definer
+set search_path = eworks, public, extensions, pg_temp
+as $$
+declare
+  v_path ltree;
+begin
+  if old.status is not distinct from new.status then
+    return null;
+  end if;
+
+  if new.status not in ('APPROVED', 'REJECTED') then
+    return null;
+  end if;
+
+  select path into v_path from eworks.org_units where id = new.org_unit_id;
+
+  perform eworks.emit_notification(
+    case new.status when 'APPROVED' then 'VENDOR_APPROVED'::eworks.notification_event_type
+                    else 'VENDOR_REJECTED'::eworks.notification_event_type end,
+    null, new.id, v_path,
+    array[new.owner_user_id]);
+
+  return null;
+end;
+$$;
+
+create trigger vendors_notify_status
+  after update of status on eworks.vendors
+  for each row execute function eworks.vendors_notify();
+
+
+create or replace function eworks.test_orders_notify()
+returns trigger
+language plpgsql
+security definer
+set search_path = eworks, public, extensions, pg_temp
+as $$
+declare
+  v_path       ltree;
+  v_recipients uuid[];
+begin
+  if old.status is not distinct from new.status then
+    return null;
+  end if;
+
+  if new.status not in ('FLOATED', 'REVEALING', 'FAILED') then
+    return null;
+  end if;
+
+  select path into v_path from eworks.org_units where id = new.org_unit_id;
+
+  if new.status = 'FLOATED' then
+    -- The radius query, inside the float transaction. If it raises, the float
+    -- rolls back and the order does not float. That is deliberate: an order
+    -- that floats while silently telling nobody is an unfair tender that looks,
+    -- from the officer's screen, exactly like a fair one.
+    --
+    -- Zero eligible vendors is NOT that case. It yields an event with zero
+    -- recipients -- a queryable fact, not a crash.
+    select coalesce(array_agg(v.owner_user_id), array[]::uuid[])
+      into v_recipients
+      from eworks.eligible_vendors_for_order(new.id) ev
+      join eworks.vendors v on v.id = ev.vendor_id;
+
+    perform eworks.emit_notification('ORDER_FLOATED', new.id, null, v_path, v_recipients);
+
+  elsif new.status = 'REVEALING' then
+    -- Every vendor holding a COMMITTED bid, and only them. A vendor who never
+    -- bid has nothing to reveal and nothing to forfeit.
+    select coalesce(array_agg(v.owner_user_id), array[]::uuid[])
+      into v_recipients
+      from eworks.order_bids b
+      join eworks.vendors v on v.id = b.vendor_id
+     where b.order_id = new.id and b.status = 'COMMITTED';
+
+    perform eworks.emit_notification('REVEAL_WINDOW_OPEN', new.id, null, v_path, v_recipients);
+
+  elsif new.status = 'FAILED' then
+    perform eworks.emit_notification('ORDER_FAILED', new.id, null, v_path,
+      array[new.created_by]);
+  end if;
+
+  return null;
+end;
+$$;
+
+create trigger test_orders_notify_status
+  after update of status on eworks.test_orders
+  for each row execute function eworks.test_orders_notify();

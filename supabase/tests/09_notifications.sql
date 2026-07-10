@@ -42,13 +42,21 @@ end;
 $$;
 
 -- Moves a DRAFT order to FLOATED with windows positioned relative to now().
+--
+-- Anchor floated_at just before bid_close_at rather than at now(), so a test
+-- may pass a NEGATIVE bid window to simulate an order whose bidding has
+-- already closed. `orders_close_after_float` requires bid_close_at > floated_at,
+-- and an order really cannot close before it was floated -- the constraint is
+-- right and the helper was wrong.
+--
+-- For the ordinary positive window this reduces to floated_at = now().
 create or replace function pg_temp.float_it(
   p_id uuid, p_bid_window interval, p_reveal_window interval)
 returns void language plpgsql as $$
 begin
   update eworks.test_orders
      set status = 'FLOATED',
-         floated_at = now(),
+         floated_at = least(now(), now() + p_bid_window - interval '1 second'),
          bid_close_at = now() + p_bid_window,
          reveal_close_at = now() + p_bid_window + p_reveal_window
    where id = p_id;
@@ -266,4 +274,159 @@ select pg_temp.check('The zero-recipient event has zero notifications',
     where e.order_id = '77777777-0000-0000-0000-00000000009a'
       and e.event_type = 'ORDER_FAILED') = 0);
 
+rollback;
+
+
+-- ===========================================================================
+-- 4. Vendor approval. Phase 1's unpaid "verified notification" debt.
+-- ===========================================================================
+begin;
+-- Vendor E is SUBMITTED in the fixtures and has never been approved.
+update eworks.vendors
+   set status = 'APPROVED',
+       approved_by = '22222222-0000-0000-0000-00000000000b',
+       approved_at = now()
+ where id = '55555555-0000-0000-0000-00000000000e';
+
+select pg_temp.check('Approving a vendor notifies its owner',
+  (select count(*) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.event_type = 'VENDOR_APPROVED'
+      and e.vendor_id = '55555555-0000-0000-0000-00000000000e'
+      and n.recipient_user_id = '44444444-0000-0000-0000-00000000000e') = 1);
+
+select pg_temp.check('Approving a vendor notifies nobody else',
+  (select count(*) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.event_type = 'VENDOR_APPROVED'
+      and e.vendor_id = '55555555-0000-0000-0000-00000000000e') = 1);
+
+-- A no-op update must not re-notify.
+update eworks.vendors set address = 'Coimbatore, 2nd floor'
+ where id = '55555555-0000-0000-0000-00000000000e';
+select pg_temp.check('An update that does not change status notifies nobody',
+  (select count(*) from eworks.notification_events
+    where event_type = 'VENDOR_APPROVED'
+      and vendor_id = '55555555-0000-0000-0000-00000000000e') = 1);
+rollback;
+
+
+-- ===========================================================================
+-- 5. ORDER_FLOATED reaches exactly the eligible vendors.
+-- ===========================================================================
+begin;
+select pg_temp.make_draft_order('77777777-0000-0000-0000-00000000009b');
+
+select pg_temp.check('A DRAFT order notifies nobody',
+  (select count(*) from eworks.notification_events
+    where order_id = '77777777-0000-0000-0000-00000000009b') = 0);
+
+select pg_temp.float_it('77777777-0000-0000-0000-00000000009b',
+  interval '2 hours', interval '1 hour');
+
+-- A and C are eligible. B is out of radius, D's NABL expired, E is not APPROVED.
+select pg_temp.check('Floating notifies exactly the eligible vendors (A and C)',
+  (select array_agg(n.recipient_user_id order by n.recipient_user_id)
+     from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009b'
+      and e.event_type = 'ORDER_FLOATED')
+  = array['44444444-0000-0000-0000-00000000000a',
+          '44444444-0000-0000-0000-00000000000c']::uuid[]);
+
+select pg_temp.check('The out-of-radius vendor is not notified',
+  (select count(*) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009b'
+      and n.recipient_user_id = '44444444-0000-0000-0000-00000000000b') = 0);
+
+select pg_temp.check('The lapsed-NABL vendor is not notified',
+  (select count(*) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009b'
+      and n.recipient_user_id = '44444444-0000-0000-0000-00000000000d') = 0);
+rollback;
+
+
+-- ===========================================================================
+-- 6. The dead-link property. This is the test that reconciles a materialised
+--    notification with "eligibility is recomputed per row, never cached".
+-- ===========================================================================
+begin;
+select pg_temp.make_draft_order('77777777-0000-0000-0000-00000000009c');
+select pg_temp.float_it('77777777-0000-0000-0000-00000000009c',
+  interval '2 hours', interval '1 hour');
+
+-- Vendor A was notified. Now its accreditation lapses.
+update eworks.vendors set nabl_valid_until = current_date - 1
+ where id = '55555555-0000-0000-0000-00000000000a';
+
+set local role eworks_authenticated;
+select set_config('app.user_id', '44444444-0000-0000-0000-00000000000a', true);
+
+select pg_temp.check('The lapsed vendor still holds the notification row',
+  (select count(*) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009c') = 1);
+
+-- Following it leads nowhere. A dead link, not a disclosure.
+select pg_temp.check('...but reads zero rows from test_orders. Dead link, not leak.',
+  (select count(*) from eworks.test_orders
+    where id = '77777777-0000-0000-0000-00000000009c') = 0);
+
+set local role postgres;
+rollback;
+
+
+-- ===========================================================================
+-- 7. REVEAL_WINDOW_OPEN. Silence here costs a vendor its EMD.
+-- ===========================================================================
+begin;
+select pg_temp.make_draft_order('77777777-0000-0000-0000-00000000009d');
+select pg_temp.float_it('77777777-0000-0000-0000-00000000009d',
+  interval '-1 minute', interval '1 hour');   -- bidding already closed
+
+-- Only Vendor A commits. Vendor C is eligible but never bids.
+set local role eworks_authenticated;
+select set_config('app.user_id', '44444444-0000-0000-0000-00000000000a', true);
+set local role postgres;
+insert into eworks.order_bids (order_id, vendor_id, commitment)
+values ('77777777-0000-0000-0000-00000000009d', '55555555-0000-0000-0000-00000000000a',
+        eworks.bid_commitment('77777777-0000-0000-0000-00000000009d',
+          '55555555-0000-0000-0000-00000000000a', 250000, 'n'));
+
+update eworks.test_orders set status = 'REVEALING'
+ where id = '77777777-0000-0000-0000-00000000009d';
+
+select pg_temp.check('REVEAL_WINDOW_OPEN reaches every COMMITTED bidder',
+  (select count(*) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009d'
+      and e.event_type = 'REVEAL_WINDOW_OPEN'
+      and n.recipient_user_id = '44444444-0000-0000-0000-00000000000a') = 1);
+
+select pg_temp.check('...and nobody else, not even an eligible non-bidder',
+  (select count(*) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009d'
+      and e.event_type = 'REVEAL_WINDOW_OPEN') = 1);
+rollback;
+
+
+-- ===========================================================================
+-- 8. ORDER_FAILED tells the officer who raised it.
+-- ===========================================================================
+begin;
+select pg_temp.make_draft_order('77777777-0000-0000-0000-00000000009e');
+select pg_temp.float_it('77777777-0000-0000-0000-00000000009e',
+  interval '-1 minute', interval '1 hour');
+update eworks.test_orders set status = 'FAILED'
+ where id = '77777777-0000-0000-0000-00000000009e';
+
+select pg_temp.check('ORDER_FAILED reaches the site engineer who created it',
+  (select array_agg(n.recipient_user_id) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009e'
+      and e.event_type = 'ORDER_FAILED')
+  = array['22222222-0000-0000-0000-00000000000d']::uuid[]);
 rollback;
