@@ -547,14 +547,18 @@ as $$
        set status = 'CLAIMED', claimed_at = now(), claimed_by = p_worker
       from due
      where d.id = due.id
-     returning d.id, d.notification_id
+     returning d.id, d.notification_created_at, d.notification_id
   )
   select c.id,
          e.event_type,
          coalesce(e.order_id, e.vendor_id),
          u.phone
     from claimed c
-    join eworks.notifications n   on n.id = c.notification_id
+    -- Join the composite primary key, never `id` alone. notifications is keyed
+    -- (created_at, id) so that RANGE-partitioning it later is an ALTER, not a
+    -- rewrite; a join on id alone cannot partition-prune and misses the PK index.
+    join eworks.notifications n   on n.created_at = c.notification_created_at
+                                and n.id = c.notification_id
     join eworks.notification_events e on e.id = n.event_id
     join eworks.user_profiles u   on u.id = n.recipient_user_id;
 $$;

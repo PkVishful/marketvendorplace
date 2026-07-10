@@ -347,6 +347,16 @@ vendors or orders, and `service_role` is never involved. The README warns that
 `service_role` bypasses RLS and makes every policy decorative; this design
 gives it no reason to appear.
 
+The same "no grant at all" fact cuts the other way for an auditor, not just for
+the worker. `eworks_authenticated` — the role every application session runs
+as, auditors included — has zero privileges on `notification_deliveries`. An
+auditor with `audit.read_all` can prove a notice was generated and addressed to
+a vendor (`notification_events` + `notifications`); they cannot, from that same
+session, prove the SMS was actually sent. That answer is DBA- or
+operator-scoped, by the identical mechanism that keeps the worker out — and
+deliberately so, since this table also carries the recipient phone number of
+every user in the system. See check 19.
+
 `recipient_phone` is the one PII exit. It is `user_profiles.phone`, which
 `security-gaps.md` #5 records as plaintext pending a KMS decision. Confining it
 to one function's return value means encrypting it later touches one place.
@@ -402,9 +412,19 @@ New file `supabase/tests/09_notifications.sql`, in the established style
 18. Two concurrent `claim_deliveries()` calls return disjoint sets, and a
     delivery that fails its attempt ceiling ends `DEAD` with `last_error` set —
     never silently dropped.
-19. An auditor holding `audit.read_all` can answer *"was this vendor notified
-    that the reveal window opened, and when?"* in one query across all three
-    tables. **This is the check that justifies the third table.**
+19. An auditor holding `audit.read_all` can establish, from `notification_events`
+    joined to `notifications`, that `REVEAL_WINDOW_OPEN` fired for this order
+    and that this vendor was among its recipients — event identity, subject,
+    and `occurred_at`, in one query across those two tables. That is half of
+    *"was this vendor notified that the reveal window opened, and when?"* —
+    that the notice was generated and addressed to them. Whether the SMS
+    actually left, and when, is a `notification_deliveries` row, and
+    `eworks_authenticated` holds no privilege on that table at all — an
+    auditor cannot read it any more than a vendor can. That half of the answer
+    comes from a DBA or an operator query (see "The delivery worker never
+    touches a table"), not from the auditor's own session. **This is still the
+    check that justifies the third table**: without it, the delivery half of
+    the answer would not exist to hand to a DBA in the first place.
 
 A twentieth assertion rides along inside #1: every recipient row for a single
 event shares one `created_at`. That is what keeps the dedup unique valid after

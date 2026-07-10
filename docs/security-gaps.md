@@ -40,6 +40,13 @@ it was delivered and when. Before disqualifying anyone, run:
 Those are vendors the system failed to reach. Forfeiting one of them is
 indefensible, and now provably so.
 
+This is a DBA-scoped query, not something an auditor can run from the
+application: `eworks_authenticated` holds no privilege on
+`notification_deliveries` at all, by design, since the table also carries
+every user's phone number. An auditor can confirm from `notification_events`
+and `notifications` that the notice fired and reached this vendor; the
+delivery outcome above must come from a DBA or an operator connection.
+
 ## 2. Data residency — unresolved, and it is a procurement decision
 
 §14 lists "confirmed data residency on approved government infrastructure" as a
