@@ -445,3 +445,55 @@ $$;
 create trigger test_orders_notify_status
   after update of status on eworks.test_orders
   for each row execute function eworks.test_orders_notify();
+
+
+-- ---------------------------------------------------------------------------
+-- order_award_notify -- the winner and the losers, on the award insert
+-- ---------------------------------------------------------------------------
+--
+-- The award is an INSERT, not a status change: order_award's primary key on
+-- order_id is what guarantees exactly one winner under concurrent finalisation.
+-- So the notification hangs off that same insert.
+create or replace function eworks.order_award_notify()
+returns trigger
+language plpgsql
+security definer
+set search_path = eworks, public, extensions, pg_temp
+as $$
+declare
+  v_path    ltree;
+  v_winner  uuid;
+  v_losers  uuid[];
+begin
+  select ou.path into v_path
+    from eworks.test_orders o
+    join eworks.org_units ou on ou.id = o.org_unit_id
+   where o.id = new.order_id;
+
+  select owner_user_id into v_winner from eworks.vendors where id = new.vendor_id;
+
+  -- REVEALED and DISQUALIFIED bidders lost. A FORFEITED bidder is told nothing:
+  -- they already received REVEAL_WINDOW_OPEN and did not act, and that silence
+  -- is precisely the record a forfeiture dispute turns on.
+  select coalesce(array_agg(v.owner_user_id), array[]::uuid[])
+    into v_losers
+    from eworks.order_bids b
+    join eworks.vendors v on v.id = b.vendor_id
+   where b.order_id = new.order_id
+     and b.vendor_id <> new.vendor_id
+     and b.status in ('REVEALED', 'DISQUALIFIED');
+
+  perform eworks.emit_notification('AWARD_WON', new.order_id, null, v_path,
+    array[v_winner]);
+
+  if array_length(v_losers, 1) > 0 then
+    perform eworks.emit_notification('AWARD_LOST', new.order_id, null, v_path, v_losers);
+  end if;
+
+  return null;
+end;
+$$;
+
+create trigger order_award_notify_insert
+  after insert on eworks.order_award
+  for each row execute function eworks.order_award_notify();

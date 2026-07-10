@@ -430,3 +430,147 @@ select pg_temp.check('ORDER_FAILED reaches the site engineer who created it',
       and e.event_type = 'ORDER_FAILED')
   = array['22222222-0000-0000-0000-00000000000d']::uuid[]);
 rollback;
+
+
+-- ===========================================================================
+-- 9. Award. The winner is told they won; the losers are told they lost, and
+--    are told nothing about the price that beat them.
+-- ===========================================================================
+begin;
+select pg_temp.make_draft_order('77777777-0000-0000-0000-0000000000a1');
+select pg_temp.float_it('77777777-0000-0000-0000-0000000000a1',
+  interval '-2 minutes', interval '1 hour');
+
+-- A bids 250000 and reveals. C bids 300000 and reveals. A wins.
+insert into eworks.order_bids (id, order_id, vendor_id, commitment, status,
+                               revealed_price_paise, nonce, revealed_at)
+values ('66666666-0000-0000-0000-0000000000a1', '77777777-0000-0000-0000-0000000000a1',
+        '55555555-0000-0000-0000-00000000000a',
+        eworks.bid_commitment('77777777-0000-0000-0000-0000000000a1',
+          '55555555-0000-0000-0000-00000000000a', 250000, 'na'),
+        'REVEALED', 250000, 'na', now()),
+       ('66666666-0000-0000-0000-0000000000a2', '77777777-0000-0000-0000-0000000000a1',
+        '55555555-0000-0000-0000-00000000000c',
+        eworks.bid_commitment('77777777-0000-0000-0000-0000000000a1',
+          '55555555-0000-0000-0000-00000000000c', 300000, 'nc'),
+        'REVEALED', 300000, 'nc', now());
+
+insert into eworks.order_award (order_id, bid_id, vendor_id, price_paise,
+                                eval_method, qualified_bid_count)
+values ('77777777-0000-0000-0000-0000000000a1', '66666666-0000-0000-0000-0000000000a1',
+        '55555555-0000-0000-0000-00000000000a', 250000, 'L1', 2);
+
+select pg_temp.check('AWARD_WON reaches the winner, and only the winner',
+  (select array_agg(n.recipient_user_id) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-0000000000a1'
+      and e.event_type = 'AWARD_WON')
+  = array['44444444-0000-0000-0000-00000000000a']::uuid[]);
+
+select pg_temp.check('AWARD_LOST reaches the other revealed bidder',
+  (select array_agg(n.recipient_user_id) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-0000000000a1'
+      and e.event_type = 'AWARD_LOST')
+  = array['44444444-0000-0000-0000-00000000000c']::uuid[]);
+
+-- The losing vendor learns that it lost. It does not learn what it lost to.
+-- The notification carries no price because it carries nothing at all.
+select pg_temp.check('No notification row can carry a price -- there is no column for one',
+  (select count(*) from information_schema.columns
+    where table_schema = 'eworks' and table_name = 'notifications'
+      and column_name ilike '%price%') = 0);
+rollback;
+
+
+-- ===========================================================================
+-- 10. A FORFEITED bidder is told nothing at award. They were told at reveal,
+--     and did not act. That asymmetry IS the forfeiture record.
+-- ===========================================================================
+begin;
+select pg_temp.make_draft_order('77777777-0000-0000-0000-0000000000a2');
+select pg_temp.float_it('77777777-0000-0000-0000-0000000000a2',
+  interval '-2 minutes', interval '1 hour');
+
+insert into eworks.order_bids (id, order_id, vendor_id, commitment, status,
+                               revealed_price_paise, nonce, revealed_at)
+values ('66666666-0000-0000-0000-0000000000b1', '77777777-0000-0000-0000-0000000000a2',
+        '55555555-0000-0000-0000-00000000000a',
+        eworks.bid_commitment('77777777-0000-0000-0000-0000000000a2',
+          '55555555-0000-0000-0000-00000000000a', 250000, 'na'),
+        'REVEALED', 250000, 'na', now());
+
+insert into eworks.order_bids (id, order_id, vendor_id, commitment, status)
+values ('66666666-0000-0000-0000-0000000000b2', '77777777-0000-0000-0000-0000000000a2',
+        '55555555-0000-0000-0000-00000000000c',
+        eworks.bid_commitment('77777777-0000-0000-0000-0000000000a2',
+          '55555555-0000-0000-0000-00000000000c', 300000, 'nc'),
+        'FORFEITED');
+
+insert into eworks.order_award (order_id, bid_id, vendor_id, price_paise,
+                                eval_method, qualified_bid_count)
+values ('77777777-0000-0000-0000-0000000000a2', '66666666-0000-0000-0000-0000000000b1',
+        '55555555-0000-0000-0000-00000000000a', 250000, 'L1', 1);
+
+select pg_temp.check('A FORFEITED bidder receives no AWARD_LOST',
+  (select count(*) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-0000000000a2'
+      and e.event_type = 'AWARD_LOST') = 0);
+rollback;
+
+
+-- ===========================================================================
+-- 11. The forfeiture-dispute query. This is why there are three tables.
+-- ===========================================================================
+begin;
+select pg_temp.make_draft_order('77777777-0000-0000-0000-0000000000a3');
+select pg_temp.float_it('77777777-0000-0000-0000-0000000000a3',
+  interval '-1 minute', interval '1 hour');
+
+insert into eworks.order_bids (order_id, vendor_id, commitment)
+values ('77777777-0000-0000-0000-0000000000a3', '55555555-0000-0000-0000-00000000000a',
+        eworks.bid_commitment('77777777-0000-0000-0000-0000000000a3',
+          '55555555-0000-0000-0000-00000000000a', 250000, 'n'));
+
+update eworks.test_orders set status = 'REVEALING'
+ where id = '77777777-0000-0000-0000-0000000000a3';
+
+update eworks.notification_deliveries d
+   set status = 'DELIVERED', delivered_at = now(), attempts = 1
+  from eworks.notifications n, eworks.notification_events e
+ where d.notification_id = n.id and n.event_id = e.id
+   and e.order_id = '77777777-0000-0000-0000-0000000000a3';
+
+set local role eworks_authenticated;
+select set_config('app.user_id', '22222222-0000-0000-0000-00000000000e', true); -- Auditor
+
+-- "Was this vendor notified that the reveal window opened, and when?"
+-- One query. Event identity, recipient, and delivery timestamp.
+select pg_temp.check('An auditor can prove the reveal notice was sent and delivered',
+  (select count(*) from eworks.notification_events e
+     join eworks.notifications n on n.event_id = e.id
+    where e.order_id = '77777777-0000-0000-0000-0000000000a3'
+      and e.event_type = 'REVEAL_WINDOW_OPEN'
+      and n.recipient_user_id = '44444444-0000-0000-0000-00000000000a'
+      and e.occurred_at is not null) = 1);
+
+set local role postgres;
+
+-- The delivery proof lives on a table the vendor-facing feed never writes to,
+-- which is what makes its timestamp evidence rather than hearsay.
+--
+-- Scoped to the REVEAL_WINDOW_OPEN event, matching the auditor check above and
+-- this section's subject: floating a3 with an already-closed bid window (a
+-- negative window used to fast-forward the clock) also fires ORDER_FLOATED to
+-- the eligible vendors, since eligible_vendors_for_order() does not consult the
+-- bid deadline. Those float deliveries are a test artifact; the reveal notice
+-- is the record a forfeiture dispute turns on.
+select pg_temp.check('The delivery record proves when it was sent',
+  (select count(*) from eworks.notification_deliveries d
+     join eworks.notifications n on n.id = d.notification_id
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-0000000000a3'
+      and e.event_type = 'REVEAL_WINDOW_OPEN'
+      and d.status = 'DELIVERED' and d.delivered_at is not null) = 1);
+rollback;
