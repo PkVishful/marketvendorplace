@@ -191,3 +191,70 @@ select pg_temp.check('eworks_authenticated has NO privilege on notification_deli
 
 set local role postgres;
 rollback;
+
+
+-- ===========================================================================
+-- 3. The fan-out primitive: dedup, delivery enqueue, partition safety.
+-- ===========================================================================
+begin;
+select pg_temp.make_draft_order('77777777-0000-0000-0000-00000000009a');
+
+select eworks.emit_notification('ORDER_FLOATED',
+  '77777777-0000-0000-0000-00000000009a', null, 'TN.COIMBATORE',
+  array['44444444-0000-0000-0000-00000000000a',
+        '44444444-0000-0000-0000-00000000000c']::uuid[]);
+
+select pg_temp.check('One event, two recipient rows',
+  (select count(*) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009a') = 2);
+
+-- Every recipient row of one event shares one created_at. This is what keeps
+-- the dedup unique valid once the table is RANGE-partitioned by month: all
+-- recipients land in the same partition by construction.
+select pg_temp.check('All recipient rows of one event share created_at',
+  (select count(distinct n.created_at) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009a') = 1);
+
+select pg_temp.check('created_at equals the event''s occurred_at',
+  (select bool_and(n.created_at = e.occurred_at) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009a'));
+
+-- One SMS delivery per recipient, PENDING and due immediately. Nothing enqueues
+-- PUSH: there is no device-token table.
+select pg_temp.check('An SMS delivery is enqueued per recipient, and no PUSH',
+  (select count(*) from eworks.notification_deliveries d
+     join eworks.notifications n on n.id = d.notification_id
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009a'
+      and d.channel = 'SMS' and d.status = 'PENDING') = 2
+  and (select count(*) from eworks.notification_deliveries where channel = 'PUSH') = 0);
+
+-- A re-run must be a no-op. sweep_finalize_awards() is idempotent by design and
+-- a missed pg_cron tick re-runs it; without this, every vendor is told twice.
+select pg_temp.check('Re-emitting the same order event returns null',
+  eworks.emit_notification('ORDER_FLOATED',
+    '77777777-0000-0000-0000-00000000009a', null, 'TN.COIMBATORE',
+    array['44444444-0000-0000-0000-00000000000a']::uuid[]) is null);
+
+select pg_temp.check('Re-emitting creates no duplicate notification',
+  (select count(*) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009a') = 2);
+
+-- An event with no recipients is a fact, not a failure. "No vendor qualified"
+-- must never be confused with "the fan-out crashed".
+select pg_temp.check('An event with zero recipients is created, and does not raise',
+  eworks.emit_notification('ORDER_FAILED',
+    '77777777-0000-0000-0000-00000000009a', null, 'TN.COIMBATORE',
+    array[]::uuid[]) is not null);
+
+select pg_temp.check('The zero-recipient event has zero notifications',
+  (select count(*) from eworks.notifications n
+     join eworks.notification_events e on e.id = n.event_id
+    where e.order_id = '77777777-0000-0000-0000-00000000009a'
+      and e.event_type = 'ORDER_FAILED') = 0);
+
+rollback;

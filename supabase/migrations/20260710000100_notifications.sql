@@ -282,3 +282,61 @@ end
 $$;
 
 grant usage on schema eworks to eworks_notifier;
+
+
+-- ---------------------------------------------------------------------------
+-- emit_notification -- the one place a notification is ever created
+-- ---------------------------------------------------------------------------
+--
+-- Returns the new event id, or NULL if this order event has already fired.
+-- Callers are triggers; they ignore the return value. Tests do not.
+--
+-- SECURITY DEFINER because the triggers run as whoever floated the order --
+-- a site engineer, who holds no INSERT on notifications and never should.
+create or replace function eworks.emit_notification(
+  p_event_type  eworks.notification_event_type,
+  p_order_id    uuid,
+  p_vendor_id   uuid,
+  p_org_path    ltree,
+  p_recipients  uuid[]
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = eworks, public, extensions, pg_temp
+as $$
+declare
+  v_event_id uuid;
+  v_at       timestamptz;
+begin
+  -- ON CONFLICT against notification_events_once_per_order. A second call for
+  -- the same (event_type, order_id) inserts nothing and returns no row, so
+  -- v_event_id stays null and the fan-out below is skipped entirely.
+  insert into eworks.notification_events (event_type, order_id, vendor_id, org_path)
+  values (p_event_type, p_order_id, p_vendor_id, p_org_path)
+  on conflict do nothing
+  returning id, occurred_at into v_event_id, v_at;
+
+  if v_event_id is null then
+    return null;
+  end if;
+
+  -- created_at := the event's occurred_at, so every recipient row lands in the
+  -- same future partition. See the table comment.
+  insert into eworks.notifications (created_at, event_id, recipient_user_id)
+  select v_at, v_event_id, r
+    from unnest(p_recipients) as r
+   group by r;   -- a duplicate recipient in the array is one notification
+
+  insert into eworks.notification_deliveries
+    (notification_created_at, notification_id, channel)
+  select n.created_at, n.id, 'SMS'
+    from eworks.notifications n
+   where n.event_id = v_event_id;
+
+  return v_event_id;
+end;
+$$;
+
+revoke all on function eworks.emit_notification(
+  eworks.notification_event_type, uuid, uuid, ltree, uuid[]) from public;
