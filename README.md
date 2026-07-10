@@ -2,7 +2,7 @@
 
 Implementation of `eworks-testing-marketplace-master-prompt.md`.
 
-**304 checks pass** — against local PostgreSQL 18 + PostGIS 3.6.2 (`bash scripts/db-test.sh`)
+**372 checks pass** — against local PostgreSQL 18 + PostGIS 3.6.2 (`bash scripts/db-test.sh`)
 and against a live Supabase project (`bash scripts/supabase-verify.sh`).
 
 - **Phase 0 — complete and verified.** Auth/RLS/audit spine plus the configurable test catalog.
@@ -11,7 +11,9 @@ and against a live Supabase project (`bash scripts/supabase-verify.sh`).
 - **Phase 3 — complete and verified.** Requirement planner (IS 456 ladder evaluated from `jsonb`), sealed RFQ orders, order state machine, eligibility-scoped vendor order board.
 - **Phase 4 — complete and verified.** Commit–reveal sealed bidding, timed close, reveal verification, forfeiture, re-check of accreditation at award, atomic single-winner L1.
 - **Phase 5 — complete and verified.** Geo-fenced check-in, serialized QR, per-specimen hash-chained custody, data-driven pass/fail, escalation, certificates, idempotent treasury payment held until certificate.
-- **Phase 6 — not started.** Notifications (pgmq), vendor ratings, analytics.
+- **Phase 6a — complete and verified.** Notification events, payload-free
+  recipient fan-out, and a plain outbox drained with `FOR UPDATE SKIP LOCKED`.
+- **Phase 6b/6c — not started.** Vendor ratings, analytics.
 - **No frontend exists yet.**
 
 ## What exists
@@ -32,6 +34,7 @@ and against a live Supabase project (`bash scripts/supabase-verify.sh`).
 | `…001200_sealed_bids.sql` | commit–reveal bids, `close_bidding()`, `reveal_bid()`, `finalize_award()`, pg_cron sweepers |
 | `…001300_ground_execution.sql` | `check_in()` (server geofence), serialized QR samples, per-specimen hash-chained `chain_of_custody` |
 | `…001400_results_certificates_payments.sql` | pass/fail engine, escalations, certificates, `hold_payment()` / `release_payment()` |
+| `…20260710000100_notifications.sql` | events, payload-free fan-out, outbox, `claim_deliveries()` / `complete_delivery()` |
 
 The master prompt's §13 puts only the catalog in Phase 0. The catalog is useless
 without the spine every later phase depends on, and that spine did not exist, so
@@ -84,6 +87,16 @@ The checks cover, among others:
 - the same 30 N/mm² passes on an M25 project and fails on M45 — with no code change
 - a 7-day failure is provisional and does **not** escalate; a 28-day failure does
 - payment releases on a **failing** result once certified, and a lab cannot release its own payment
+- a vendor notified of a floated order, whose NABL then lapses, still holds the
+  notification and reads **zero rows** from `test_orders` — a dead link, not a leak
+- a vendor who never revealed is told nothing at award; the reveal notice it did
+  receive is what the forfeiture rests on
+- `eworks_authenticated` holds no privilege at all on the delivery outbox
+- a delivery that exhausts its retries becomes `DEAD` and is never deleted
+- a worker cannot report on a delivery it never claimed, nor on one another
+  worker holds, nor re-report one it already finished
+- a `DEAD` delivery cannot be resurrected, and keeps its error
+- a claim abandoned past the visibility timeout is reclaimed; a fresh one is not
 
 ## Applying the schema to Supabase
 
@@ -144,6 +157,18 @@ Each of these is a decision, not an oversight. Reasoning in `docs/security-gaps.
    `passed = true`. A failure escalates for engineering sign-off; it does not
    block, and it does not withhold the lab's fee.
 
+7. **A plain outbox table, not `pgmq`.** §7 names pgmq; pgmq is tables and
+   functions over `FOR UPDATE SKIP LOCKED`. A plain table gives identical
+   semantics with no extension, so these migrations still run unchanged on a NIC
+   or State Data Centre cluster — the same argument as divergence 1 — and Phase
+   6a stays verifiable by `db-test.sh` on a stock PostgreSQL.
+
+8. **Notifications carry no payload.** A recipient row names an event, never an
+   order's content. §11 asks for a fast feed; a denormalised title would deliver
+   one and would also become a disclosure channel that bypasses `test_orders`'
+   RLS, permanently, for a vendor who has since become ineligible. The row is a
+   pointer, and following it goes through live RLS.
+
 ## Operational notes
 
 - **RLS refuses by making rows invisible, not by raising.** An `UPDATE` a user is
@@ -175,3 +200,21 @@ Each of these is a decision, not an oversight. Reasoning in `docs/security-gaps.
   `eworks_authenticated` needs `USAGE` there — otherwise it fails with the
   thoroughly misleading "function digest(bytea, unknown) does not exist".
   `SECURITY DEFINER` functions hide this bug because they run as the owner.
+- **Notifications are not audited.** The state change that produced each one
+  already is, and `audit_logs_seal()` serialises every append behind an advisory
+  lock. Fanning out inside it would put the PostGIS radius query behind the one
+  global lock at exactly the bid-broadcast spike.
+- **`notifications` is partition-ready, not partitioned.** The key is
+  `(created_at, id)` and nothing references `notifications.id` alone. When you do
+  partition, note that a partition queried **directly** enforces only its own
+  grants and policies — never the parent's.
+- **A delivery worker's authority is its claim, never a delivery id.**
+  `complete_delivery()` refuses to act on a row the caller does not currently
+  hold, and `DEAD` is terminal against both entry points. Ids are sequential
+  bigints; treating one as authority would let a compromised SMS worker forge or
+  destroy the record of a reveal notice, and that record is what a forfeited
+  vendor's deposit turns on.
+- **A claim abandoned for five minutes is reaped.** A worker that dies after
+  claiming would otherwise strand a notice with no operator-visible signal.
+  `select * from eworks.notification_deliveries where status = 'DEAD'` remains
+  the "who did we fail to reach" report.

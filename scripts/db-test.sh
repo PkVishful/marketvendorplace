@@ -26,7 +26,8 @@ needs_postgis() {
     20260709001100_test_orders.sql|20260709001200_sealed_bids.sql)   return 0 ;;
     20260709001300_ground_execution.sql)                             return 0 ;;
     20260709001400_results_certificates_payments.sql)                return 0 ;;
-    03_vendors.sql|04_pricing.sql|05_planner_and_orders.sql|06_sealed_bidding.sql|07_ground_execution.sql|08_results_and_payment.sql) return 0 ;;
+    20260710000100_notifications.sql)                                return 0 ;;
+    03_vendors.sql|04_pricing.sql|05_planner_and_orders.sql|06_sealed_bidding.sql|07_ground_execution.sql|08_results_and_payment.sql|09_notifications.sql) return 0 ;;
     *)                                                               return 1 ;;
   esac
 }
@@ -59,7 +60,7 @@ echo "==> rebuilding $DB"
 echo "==> applying migrations"
 for f in supabase/migrations/*.sql; do
   base=$(basename "$f")
-  if [ "$has_postgis" -eq 0 ] && [ "$base" = "$NEEDS_POSTGIS_MIGRATION" ]; then
+  if [ "$has_postgis" -eq 0 ] && needs_postgis "$base"; then
     printf '    %-48s%s\n' "$base" 'SKIPPED (no postgis)'
     continue
   fi
@@ -98,7 +99,7 @@ if [ $failed -ne 0 ]; then
   exit 1
 fi
 if [ "$has_postgis" -eq 0 ]; then
-  echo "RESULT: $total checks passed -- PHASES 1-5 NOT VERIFIED (no PostGIS)"
+  echo "RESULT: $total checks passed -- PHASES 1-6a NOT VERIFIED (no PostGIS)"
 else
-  echo "RESULT: $total checks passed (Phases 0-5)"
+  echo "RESULT: $total checks passed (Phases 0-6a)"
 fi

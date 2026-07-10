@@ -186,7 +186,14 @@ The outbox. `eworks_authenticated` holds **no privilege on this table at all**.
 
 - Foreign key `(notification_created_at, notification_id)` → `notifications(created_at, id)` on delete cascade.
 - Unique `(notification_created_at, notification_id, channel)` — exactly one delivery per channel per recipient.
-- Partial index `(channel, next_attempt_at) WHERE status IN ('PENDING','FAILED')` — the claim query.
+- Partial index `(channel, next_attempt_at) WHERE status IN ('PENDING','FAILED','CLAIMED')` —
+  the claim query. `CLAIMED` is included because a worker that crashes mid-batch
+  leaves rows claimed forever otherwise; see "The delivery worker never touches
+  a table" below for the reaping that depends on it.
+
+**What enqueues a delivery.** `emit_notification()` inserts one `PENDING` row
+per notification on the `SMS` channel. `PUSH` exists in the enum but nothing
+enqueues it: there is no device-token table, and inventing one is out of scope.
 
 ## Emission
 
@@ -248,18 +255,51 @@ a change to one trigger body. It is not needed now and is not built now.
 
 ## Security model
 
-### RLS on `notifications`
+### RLS on `notifications` — via two `SECURITY DEFINER` helpers
+
+The design below was tried first and does not work: `notifications_read`
+subquerying `notification_events`, and `notification_events_read` subquerying
+`notifications`. Both tables have RLS enabled, so each policy would have to
+evaluate the other, and PostgreSQL refuses outright with `infinite recursion
+detected in policy for relation "notifications"`. This is not a tuning problem;
+that query plan cannot exist.
+
+What shipped instead is two `STABLE SECURITY DEFINER` functions that each
+policy calls in place of the subquery:
+
+- `eworks.event_org_path(p_event_id) returns ltree` — the event's `org_path`.
+- `eworks.is_notification_recipient(p_event_id) returns boolean` — whether the
+  calling user holds a `notifications` row for that event.
+
+A definer function runs as the table owner, and the owner bypasses RLS, so the
+cycle is broken. This is the project's existing idiom, not a new one:
+`eworks.has_permission()` is itself `SECURITY DEFINER` over the RLS-enabled
+`user_roles`, for exactly this reason. Neither helper widens what anyone can
+see — `event_org_path()` discloses an org_path to a caller who already holds
+the event's uuid and hands it straight to `has_permission()`, which decides;
+`is_notification_recipient()` only ever answers about the calling user.
 
 ```
-read:  recipient_user_id = eworks.current_user_id()
-       OR (auditor branch: has_permission('audit.read', event.org_path))
+notifications_read:
+  recipient_user_id = eworks.current_user_id()
+  OR has_permission('audit.read', event_org_path(event_id))
+
+notification_events_read:
+  is_notification_recipient(notification_events.id)
+  OR has_permission_anywhere('audit.read_all')
+  OR has_permission('audit.read', notification_events.org_path)
 ```
 
 The self-access branch has precedent: `user_profiles_read` opens with
 `id = eworks.current_user_id()`. The README's rule — *`in_scope()` answers
 "where", never "whether"; a read policy must name a permission* — is honoured
-because the second branch names `audit.read` and never leans on `in_scope()`
-alone.
+because every auditor branch names a permission and never leans on
+`in_scope()` alone.
+
+**The policies' meaning is unchanged** from the design above; only the
+mechanism that evaluates them differs. This was verified live: a Salem
+district officer holding `audit.read` for the wrong district reads zero
+notifications and zero events.
 
 Grants to `eworks_authenticated`:
 
@@ -267,8 +307,8 @@ Grants to `eworks_authenticated`:
 - `UPDATE (read_at)` on `notifications` — a **column-level** grant. RLS cannot
   restrict columns, so this is what stops a vendor rewriting `event_id`.
 - **No** `INSERT`, **no** `DELETE`. Only the `SECURITY DEFINER` triggers write.
-- `SELECT` on `notification_events`, policied to events the caller has a
-  `notifications` row for, or `has_permission_anywhere('audit.read_all')`.
+- `SELECT` on `notification_events`, policied as above.
+- `EXECUTE` on `event_org_path()` and `is_notification_recipient()`.
 - Nothing whatsoever on `notification_deliveries`.
 
 ### The delivery worker never touches a table
@@ -278,11 +318,29 @@ gets `EXECUTE` on exactly two `SECURITY DEFINER` functions:
 
 - `claim_deliveries(p_channel, p_limit, p_worker text)` — selects due rows
   `FOR UPDATE SKIP LOCKED`, marks them `CLAIMED`, and returns
-  `(delivery_id, event_type, subject_id, recipient_phone)`.
-- `complete_delivery(p_delivery_id, p_ok boolean, p_error text)` — marks
-  `DELIVERED`, or increments `attempts`, records `last_error`, sets
-  `next_attempt_at` by exponential backoff, and flips to `DEAD` past the
-  attempt ceiling.
+  `(delivery_id, event_type, subject_id, recipient_phone)`. It also reaps any
+  claim older than a **five-minute visibility timeout** — a worker that
+  crashed after claiming would otherwise strand a notice forever, which is
+  worse than `DEAD`, since `DEAD` at least gets reported. `p_limit` is clamped
+  to `least(greatest(p_limit, 1), 1000)`; an unbounded limit let one worker
+  claim the entire backlog, and one crash then stranded all of it.
+- `complete_delivery(p_delivery_id bigint, p_worker text, p_ok boolean, p_error
+  text default null)` — marks `DELIVERED`, or increments `attempts`, records
+  `last_error`, sets `next_attempt_at` by exponential backoff, and flips to
+  `DEAD` past the attempt ceiling.
+
+  **This signature differs from an earlier three-argument form
+  (`p_delivery_id, p_ok, p_error`), and the change closes a Critical
+  vulnerability, not a style preference.** The three-argument form updates by
+  `id` alone, and delivery ids are sequential `bigint` — so any holder of
+  `EXECUTE`, including a compromised SMS worker, could mark an unclaimed row
+  `DELIVERED`, flip a `DELIVERED` row back to `FAILED`, or resurrect a `DEAD`
+  one by guessing an id. Against a `REVEAL_WINDOW_OPEN` notice, that is the
+  power to manufacture the record needed to forfeit a rival's earnest-money
+  deposit. Every branch of the shipped function is instead guarded on
+  `status = 'CLAIMED' and claimed_by = p_worker`, and raises when no row
+  matches: **the claim is the authority, not the id.** The old three-argument
+  overload is dropped, not kept alongside the new one.
 
 Consequences worth stating: the worker cannot read the feed, cannot enumerate
 vendors or orders, and `service_role` is never involved. The README warns that

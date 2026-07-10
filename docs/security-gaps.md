@@ -30,6 +30,16 @@ marked `FORFEITED`, but the EMD penalty attached to that must be written into
 the tender conditions. Without a penalty, non-revelation is a free option to
 withdraw after seeing the field.
 
+**The operational control that makes forfeiture fair** arrived in Phase 6a. A
+`REVEAL_WINDOW_OPEN` notification fires on `DRAFT -> REVEALING` to every vendor
+holding a `COMMITTED` bid, and `eworks.notification_deliveries` records whether
+it was delivered and when. Before disqualifying anyone, run:
+
+    select * from eworks.notification_deliveries where status = 'DEAD';
+
+Those are vendors the system failed to reach. Forfeiting one of them is
+indefensible, and now provably so.
+
 ## 2. Data residency — unresolved, and it is a procurement decision
 
 §14 lists "confirmed data residency on approved government infrastructure" as a
@@ -118,7 +128,52 @@ it.
 
 The public QR verification endpoint (§9) is not built.
 
-## 8. The fraud engine is not AI yet, and should not be first
+## 8. Notifications — minor findings recorded, not fixed
+
+Phase 6a's RLS design changed from the approved spec: the spec had
+`notifications_read` and `notification_events_read` each subquery the other's
+table, and PostgreSQL refuses that outright (`infinite recursion detected in
+policy for relation "notifications"`), because both tables have RLS enabled and
+each policy would have to evaluate the other. What shipped instead is two
+`STABLE SECURITY DEFINER` helpers, `eworks.event_org_path()` and
+`eworks.is_notification_recipient()` — the same idiom `has_permission()` already
+uses to read the RLS-enabled `user_roles` table. The policies' meaning is
+unchanged; a Salem officer holding `audit.read` for the wrong district still
+reads zero rows of either table.
+
+The delivery worker's contract also changed from the spec, and this one was a
+Critical finding, not a style choice. The spec's `complete_delivery(p_delivery_id,
+p_ok, p_error)` updates by `id` alone. Delivery ids are sequential `bigint`, so
+any holder of `EXECUTE` — including a compromised SMS worker — could mark an
+unclaimed row `DELIVERED`, flip a `DELIVERED` row back to `FAILED`, or resurrect
+a `DEAD` one. Against a `REVEAL_WINDOW_OPEN` notice, that is the power to
+manufacture the record a rival's earnest-money forfeiture rests on. What shipped
+is `complete_delivery(p_delivery_id, p_worker, p_ok, p_error)`: every branch is
+guarded on `status = 'CLAIMED' and claimed_by = p_worker` and raises when no row
+matches. The claim is the authority, not the id; the old three-argument form is
+dropped, not replaced. `claim_deliveries()` also reaps claims older than a
+five-minute visibility timeout, so a worker that crashed after claiming does not
+strand a notice forever, and clamps `p_limit` to `least(greatest(p_limit, 1),
+1000)`, so one worker cannot claim the entire backlog.
+
+A handful of smaller items surfaced during that work and are recorded here
+rather than silently patched:
+
+- A `HEAD_ADMIN` holding only `audit.read_all` can read `notification_events`
+  but not `notifications`, because `notifications_read`'s audit branch names
+  only `audit.read`. An `AUDITOR` holds both and is unaffected. More restrictive
+  than a leak, but it means the forfeiture-dispute query in gap #1 works for an
+  auditor and not for a head admin. **This is a policy decision the department
+  should make, not a bug to quietly patch.**
+- `notification_events_subject_matches_type` has no test exercising it.
+- Two `check_raises` assertions in the delivery-worker tests have no companion
+  state assertion.
+- `greatest(p_limit, 1)` means a caller asking for zero deliveries gets one.
+- Single-element `array_agg` assertions in the notification tests lack
+  `order by` — latent flakiness only if someone later adds a second recipient to
+  those scenarios.
+
+## 9. The fraud engine is not AI yet, and should not be first
 
 §9 lists an AI fraud engine. The initial implementation should be deterministic
 rules — duplicate QR, GPS outside geofence, duplicate photo hash, out-of-range
