@@ -151,3 +151,134 @@ create table eworks.notification_deliveries (
 create index deliveries_due_idx
   on eworks.notification_deliveries (channel, next_attempt_at)
   where status in ('PENDING', 'FAILED');
+
+
+-- ---------------------------------------------------------------------------
+-- RLS
+-- ---------------------------------------------------------------------------
+
+alter table eworks.notification_events enable row level security;
+alter table eworks.notifications enable row level security;
+alter table eworks.notification_deliveries enable row level security;
+
+
+-- Two policies that each need to consult the other's table would recurse:
+-- evaluating notifications_read would evaluate notification_events_read, which
+-- would evaluate notifications_read. PostgreSQL detects this and refuses every
+-- read of either table.
+--
+-- The project already solved this once. eworks.has_permission() is SECURITY
+-- DEFINER and reads user_roles, which has RLS enabled -- a definer function
+-- runs as the owner, and the owner bypasses RLS (no table here sets FORCE ROW
+-- LEVEL SECURITY). These two helpers restore that idiom.
+--
+-- Neither widens what anyone can see. event_org_path() discloses an org_path to
+-- a caller who already holds the event's uuid, and that path is then handed
+-- straight to has_permission(), which decides. is_notification_recipient() only
+-- ever answers about the calling user.
+
+create or replace function eworks.event_org_path(p_event_id uuid)
+returns ltree
+language sql
+stable
+parallel safe
+security definer
+set search_path = eworks, public, extensions, pg_temp
+as $$
+  select org_path from eworks.notification_events where id = p_event_id;
+$$;
+
+create or replace function eworks.is_notification_recipient(p_event_id uuid)
+returns boolean
+language sql
+stable
+parallel safe
+security definer
+set search_path = eworks, public, extensions, pg_temp
+as $$
+  select exists (
+    select 1
+      from eworks.notifications n
+     where n.event_id = p_event_id
+       and n.recipient_user_id = eworks.current_user_id()
+  );
+$$;
+
+revoke all on function eworks.event_org_path(uuid) from public;
+revoke all on function eworks.is_notification_recipient(uuid) from public;
+grant execute on function eworks.event_org_path(uuid) to eworks_authenticated;
+grant execute on function eworks.is_notification_recipient(uuid) to eworks_authenticated;
+
+
+-- Read your own mail. The self-identity branch has precedent: user_profiles_read
+-- opens with `id = eworks.current_user_id()`.
+--
+-- The second branch names a permission. It never leans on in_scope() alone --
+-- in_scope() answers "where", never "whether", and a LAB_VENDOR holds a role
+-- anchored in a district, so scope alone would show every lab the whole
+-- district's notification traffic.
+grant select on eworks.notifications to eworks_authenticated;
+grant update (read_at) on eworks.notifications to eworks_authenticated;
+
+create policy notifications_read on eworks.notifications
+  for select to eworks_authenticated
+  using (
+    recipient_user_id = eworks.current_user_id()
+    or eworks.has_permission('audit.read', eworks.event_org_path(event_id))
+  );
+
+-- Only your own row, and (via the column grant above) only read_at.
+create policy notifications_mark_read on eworks.notifications
+  for update to eworks_authenticated
+  using (recipient_user_id = eworks.current_user_id())
+  with check (recipient_user_id = eworks.current_user_id());
+
+-- No INSERT or DELETE policy, and no INSERT/DELETE grant. Only the
+-- SECURITY DEFINER emit trigger writes here.
+
+
+grant select on eworks.notification_events to eworks_authenticated;
+
+-- You may read an event only if you were told about it, or if you are an
+-- auditor. Without this, the events table would leak every floated order's
+-- existence to every vendor.
+create policy notification_events_read on eworks.notification_events
+  for select to eworks_authenticated
+  using (
+    eworks.is_notification_recipient(notification_events.id)
+    or eworks.has_permission_anywhere('audit.read_all')
+    or eworks.has_permission('audit.read', notification_events.org_path)
+  );
+
+
+-- notification_deliveries: RLS is enabled and NO policy is created, so even a
+-- role holding an accidental future grant reads nothing. eworks_authenticated
+-- is granted nothing at all. The worker reaches it only through the two
+-- SECURITY DEFINER functions added in Task 7.
+
+
+-- ---------------------------------------------------------------------------
+-- The delivery worker's role
+-- ---------------------------------------------------------------------------
+--
+-- It holds no table grants whatsoever -- only EXECUTE on two functions (Task 7).
+-- So it cannot read the feed, cannot enumerate vendors or orders, and
+-- service_role (which bypasses RLS entirely and would make every policy above
+-- decorative) never needs to appear.
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'eworks_notifier') then
+    create role eworks_notifier nologin;
+  end if;
+
+  if not (select usesuper from pg_user where usename = current_user) then
+    if current_setting('server_version_num')::int >= 160000 then
+      execute format('grant eworks_notifier to %I with set true', current_user);
+    elsif not pg_has_role(current_user, 'eworks_notifier', 'MEMBER') then
+      execute format('grant eworks_notifier to %I', current_user);
+    end if;
+  end if;
+end
+$$;
+
+grant usage on schema eworks to eworks_notifier;

@@ -89,3 +89,105 @@ select pg_temp.check_raises('An event naming no subject is rejected',
   $$insert into eworks.notification_events (event_type, org_path) values ('ORDER_FLOATED', 'TN')$$);
 
 rollback;
+
+
+-- ===========================================================================
+-- 2. Isolation. A notification is addressed mail, not a bulletin board.
+-- ===========================================================================
+begin;
+
+insert into eworks.notification_events (id, event_type, vendor_id, org_path)
+values ('88888888-0000-0000-0000-000000000001', 'VENDOR_APPROVED',
+        '55555555-0000-0000-0000-00000000000a', 'TN.COIMBATORE');
+
+insert into eworks.notifications (created_at, event_id, recipient_user_id)
+values (now(), '88888888-0000-0000-0000-000000000001',
+        '44444444-0000-0000-0000-00000000000a');   -- Vendor A's owner
+
+insert into eworks.notification_deliveries
+  (notification_created_at, notification_id, channel)
+select created_at, id, 'SMS' from eworks.notifications
+ where event_id = '88888888-0000-0000-0000-000000000001';
+
+set local role eworks_authenticated;
+
+select set_config('app.user_id', '44444444-0000-0000-0000-00000000000a', true); -- Vendor A
+select pg_temp.check('A vendor reads its own notification',
+  (select count(*) from eworks.notifications) = 1);
+
+select set_config('app.user_id', '44444444-0000-0000-0000-00000000000c', true); -- Vendor C
+select pg_temp.check('Vendor C cannot read Vendor A''s notification',
+  (select count(*) from eworks.notifications) = 0);
+
+-- Not "cannot see the body" -- cannot see the row, and so cannot learn that
+-- Vendor A was approved at all.
+select pg_temp.check('Vendor C cannot read the event either',
+  (select count(*) from eworks.notification_events) = 0);
+
+select set_config('app.user_id', null, true);  -- unauthenticated
+select pg_temp.check('An unauthenticated connection reads zero notifications',
+  (select count(*) from eworks.notifications) = 0);
+
+set local role postgres;
+rollback;
+
+
+begin;
+insert into eworks.notification_events (id, event_type, vendor_id, org_path)
+values ('88888888-0000-0000-0000-000000000002', 'VENDOR_APPROVED',
+        '55555555-0000-0000-0000-00000000000a', 'TN.COIMBATORE');
+insert into eworks.notifications (id, created_at, event_id, recipient_user_id)
+values ('99999999-0000-0000-0000-000000000002', now(),
+        '88888888-0000-0000-0000-000000000002', '44444444-0000-0000-0000-00000000000a');
+
+set local role eworks_authenticated;
+select set_config('app.user_id', '44444444-0000-0000-0000-00000000000a', true);
+
+-- The grant, not the policy, is what refuses. A policy that is never reached
+-- because the privilege is absent is a policy nobody has tested -- so assert
+-- the privilege is absent, deliberately.
+select pg_temp.check('eworks_authenticated cannot INSERT a notification',
+  not has_table_privilege('eworks_authenticated', 'eworks.notifications', 'INSERT'));
+
+select pg_temp.check('eworks_authenticated cannot DELETE a notification',
+  not has_table_privilege('eworks_authenticated', 'eworks.notifications', 'DELETE'));
+
+-- Column-level grant: read_at yes, everything else no. RLS cannot restrict
+-- columns, so this is the only thing stopping a vendor rewriting event_id.
+select pg_temp.check('A vendor may update read_at',
+  has_column_privilege('eworks_authenticated', 'eworks.notifications', 'read_at', 'UPDATE'));
+
+select pg_temp.check('A vendor may not update event_id',
+  not has_column_privilege('eworks_authenticated', 'eworks.notifications', 'event_id', 'UPDATE'));
+
+-- `found` is a PL/pgSQL-only variable and is not visible to a top-level psql
+-- SELECT, so the affected-row count is captured with a CTE instead. The intent
+-- is unchanged: the own-row UPDATE touches exactly one row.
+with u as (
+  update eworks.notifications set read_at = now()
+   where id = '99999999-0000-0000-0000-000000000002'
+  returning 1
+)
+select pg_temp.check('Marking own notification read succeeds',
+  (select count(*) from u) = 1);
+
+-- RLS refuses by making the row invisible. The UPDATE affects zero rows and
+-- returns success -- which is exactly why the BFF must check the row count.
+select set_config('app.user_id', '44444444-0000-0000-0000-00000000000c', true); -- Vendor C
+with u as (
+  update eworks.notifications set read_at = now()
+   where id = '99999999-0000-0000-0000-000000000002'
+  returning 1
+)
+select pg_temp.check('Vendor C marking Vendor A''s notification read affects zero rows',
+  (select count(*) from u) = 0);
+
+-- The outbox is not user-facing at all. Not "policied" -- ungranted.
+select pg_temp.check('eworks_authenticated has NO privilege on notification_deliveries',
+  not has_table_privilege('eworks_authenticated', 'eworks.notification_deliveries', 'SELECT')
+  and not has_table_privilege('eworks_authenticated', 'eworks.notification_deliveries', 'INSERT')
+  and not has_table_privilege('eworks_authenticated', 'eworks.notification_deliveries', 'UPDATE')
+  and not has_table_privilege('eworks_authenticated', 'eworks.notification_deliveries', 'DELETE'));
+
+set local role postgres;
+rollback;
