@@ -73,7 +73,7 @@ echo "==> loading fixtures"
 
 total=0
 failed=0
-for t in supabase/tests/02_*.sql supabase/tests/03_*.sql supabase/tests/04_*.sql supabase/tests/05_*.sql supabase/tests/06_*.sql supabase/tests/07_*.sql supabase/tests/08_*.sql; do
+for t in supabase/tests/02_*.sql supabase/tests/03_*.sql supabase/tests/04_*.sql supabase/tests/05_*.sql supabase/tests/06_*.sql supabase/tests/07_*.sql supabase/tests/08_*.sql supabase/tests/09_*.sql; do
   base=$(basename "$t")
   [ -f "$t" ] || continue
   if [ "$has_postgis" -eq 0 ] && needs_postgis "$base"; then
