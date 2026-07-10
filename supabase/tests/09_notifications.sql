@@ -641,7 +641,7 @@ select pg_temp.check('Claimed rows are marked CLAIMED with their worker',
 
 -- Success, reported by the worker.
 set local role eworks_notifier;
-select eworks.complete_delivery((select delivery_id from claimed_a), true, null);
+select eworks.complete_delivery((select delivery_id from claimed_a), 'worker-a', true, null);
 set local role postgres;
 
 select pg_temp.check('A successful delivery is DELIVERED with a timestamp',
@@ -653,7 +653,7 @@ select pg_temp.check('A successful delivery is DELIVERED with a timestamp',
 -- Failure, reported by the worker. Backoff: power(4, attempts-1) minutes, so
 -- the first retry is ~1 minute out, not 4 and not immediate.
 set local role eworks_notifier;
-select eworks.complete_delivery((select delivery_id from claimed_b), false, 'gateway timeout');
+select eworks.complete_delivery((select delivery_id from claimed_b), 'worker-b', false, 'gateway timeout');
 set local role postgres;
 
 select pg_temp.check('A failed delivery is FAILED, retried later, with the error kept',
@@ -680,8 +680,10 @@ declare v_id bigint;
 begin
   select delivery_id into v_id from claimed_b;
   for i in 2..5 loop
-    update eworks.notification_deliveries set status = 'CLAIMED' where id = v_id;
-    perform eworks.complete_delivery(v_id, false, 'gateway timeout');
+    update eworks.notification_deliveries
+       set status = 'CLAIMED', claimed_by = 'worker-b', claimed_at = now()
+     where id = v_id;
+    perform eworks.complete_delivery(v_id, 'worker-b', false, 'gateway timeout');
   end loop;
 end
 $$;
@@ -700,5 +702,77 @@ select pg_temp.check('A DEAD delivery is never claimed again',
 select pg_temp.check('A DEAD delivery still exists and is visible to an operator',
   (select count(*) from eworks.notification_deliveries
     where id = (select delivery_id from claimed_b) and status = 'DEAD') = 1);
+
+-- ---------------------------------------------------------------------------
+-- The claim IS the authority. The id is guessable; the claim is not.
+-- ---------------------------------------------------------------------------
+
+-- A fresh PENDING delivery nobody has claimed.
+select pg_temp.make_draft_order('77777777-0000-0000-0000-0000000000c2');
+select pg_temp.float_it('77777777-0000-0000-0000-0000000000c2',
+  interval '2 hours', interval '1 hour');
+
+select pg_temp.check_raises('An unclaimed delivery cannot be reported DELIVERED',
+  $$select eworks.complete_delivery(
+      (select id from eworks.notification_deliveries where status = 'PENDING' limit 1),
+      'worker-x', true, null)$$);
+
+-- Worker A claims; worker B must not be able to report on A's claim.
+create temp table claimed_c as
+  select * from eworks.claim_deliveries('SMS', 1, 'worker-a');
+
+select pg_temp.check_raises('A worker cannot complete another worker''s claim',
+  $$select eworks.complete_delivery((select delivery_id from claimed_c),
+      'worker-b', true, null)$$);
+
+select pg_temp.check('...and the delivery is still CLAIMED by its owner',
+  (select status = 'CLAIMED' and claimed_by = 'worker-a'
+     from eworks.notification_deliveries
+    where id = (select delivery_id from claimed_c)));
+
+select eworks.complete_delivery((select delivery_id from claimed_c), 'worker-a', true, null);
+
+select pg_temp.check_raises('A DELIVERED delivery cannot be re-reported as FAILED',
+  $$select eworks.complete_delivery((select delivery_id from claimed_c),
+      'worker-a', false, 'forged')$$);
+
+-- The row from earlier in this section that we walked to DEAD.
+select pg_temp.check_raises('A DEAD delivery cannot be resurrected as DELIVERED',
+  $$select eworks.complete_delivery((select delivery_id from claimed_b),
+      'worker-b', true, null)$$);
+
+select pg_temp.check('The DEAD delivery is still DEAD, with its error intact',
+  (select status = 'DEAD' and last_error is not null
+     from eworks.notification_deliveries
+    where id = (select delivery_id from claimed_b)));
+
+-- ---------------------------------------------------------------------------
+-- A crashed worker's claim is reaped, not stranded forever.
+-- ---------------------------------------------------------------------------
+select pg_temp.make_draft_order('77777777-0000-0000-0000-0000000000c3');
+select pg_temp.float_it('77777777-0000-0000-0000-0000000000c3',
+  interval '2 hours', interval '1 hour');
+
+create temp table claimed_d as
+  select * from eworks.claim_deliveries('SMS', 1, 'worker-crashes');
+
+select pg_temp.check('A fresh claim is not reclaimable by another worker',
+  (select count(*) from eworks.claim_deliveries('SMS', 10, 'worker-rescuer')
+    where delivery_id = (select delivery_id from claimed_d)) = 0);
+
+-- Simulate the worker having died six minutes ago.
+update eworks.notification_deliveries
+   set claimed_at = now() - interval '6 minutes'
+ where id = (select delivery_id from claimed_d);
+
+select pg_temp.check('A claim abandoned past the visibility timeout is reclaimed',
+  (select count(*) from eworks.claim_deliveries('SMS', 10, 'worker-rescuer')
+    where delivery_id = (select delivery_id from claimed_d)) = 1);
+
+-- ---------------------------------------------------------------------------
+-- p_limit is bounded, so one worker cannot swallow the backlog.
+-- ---------------------------------------------------------------------------
+select pg_temp.check('claim_deliveries clamps an absurd p_limit rather than honouring it',
+  (select count(*) from eworks.claim_deliveries('SMS', 2000000000, 'worker-greedy')) <= 1000);
 
 rollback;

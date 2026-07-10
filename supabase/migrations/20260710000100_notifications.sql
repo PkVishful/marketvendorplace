@@ -147,10 +147,14 @@ create table eworks.notification_deliveries (
   )
 );
 
--- The claim query: due work on one channel, oldest first.
+-- The claim query: due work on one channel, oldest first. CLAIMED is included
+-- because a worker that crashes mid-batch leaves rows claimed forever
+-- otherwise; claim_deliveries() reaps any claim older than the visibility
+-- timeout. Without this a stranded REVEAL_WINDOW_OPEN notice is a vendor who
+-- silently loses their deposit.
 create index deliveries_due_idx
   on eworks.notification_deliveries (channel, next_attempt_at)
-  where status in ('PENDING', 'FAILED');
+  where status in ('PENDING', 'FAILED', 'CLAIMED');
 
 
 -- ---------------------------------------------------------------------------
@@ -524,10 +528,18 @@ as $$
     select d.id
       from eworks.notification_deliveries d
      where d.channel = p_channel
-       and d.status in ('PENDING', 'FAILED')
-       and d.next_attempt_at <= now()
+       and (
+         -- ordinary due work
+         (d.status in ('PENDING', 'FAILED') and d.next_attempt_at <= now())
+         -- a claim abandoned by a crashed worker. Five minutes is a visibility
+         -- timeout, not a business rule: it must exceed the longest plausible
+         -- gateway round-trip, and it bounds how long a stranded notice waits.
+         or (d.status = 'CLAIMED' and d.claimed_at < now() - interval '5 minutes')
+       )
      order by d.next_attempt_at
-     limit p_limit
+     -- Bounded. An unbounded p_limit lets one worker claim the whole backlog,
+     -- and one crash then strands all of it until the visibility timeout.
+     limit least(greatest(p_limit, 1), 1000)
      for update skip locked
   ),
   claimed as (
@@ -547,11 +559,23 @@ as $$
     join eworks.user_profiles u   on u.id = n.recipient_user_id;
 $$;
 
+-- The old three-argument form updated by id alone. Delivery ids are sequential
+-- bigints, so any holder of EXECUTE could rewrite any delivery's terminal state
+-- by guessing. Dropped, not replaced, so the vulnerable overload cannot survive.
+drop function if exists eworks.complete_delivery(bigint, boolean, text);
+
 -- Exponential backoff: 1, 4, 16, 64 minutes, then DEAD on the fifth failure.
 -- The ceiling is operational policy, not an IS-code rule, so it is a constant
 -- here rather than a row in eworks.settings.
+--
+-- Every branch is guarded on the row being CLAIMED BY THIS WORKER. That is the
+-- caller's authority: not the id, which is guessable, but the claim, which the
+-- database handed out. A worker therefore cannot report on a delivery it never
+-- claimed, cannot re-report one it already finished, and cannot resurrect a
+-- DEAD row. DEAD is terminal against both entry points, not just one.
 create or replace function eworks.complete_delivery(
   p_delivery_id bigint,
+  p_worker      text,
   p_ok          boolean,
   p_error       text default null
 )
@@ -566,7 +590,13 @@ begin
   if p_ok then
     update eworks.notification_deliveries
        set status = 'DELIVERED', delivered_at = now(), last_error = null
-     where id = p_delivery_id;
+     where id = p_delivery_id
+       and status = 'CLAIMED'
+       and claimed_by = p_worker;
+
+    if not found then
+      raise exception 'delivery % is not currently claimed by %', p_delivery_id, p_worker;
+    end if;
     return;
   end if;
 
@@ -576,7 +606,13 @@ begin
          claimed_at = null,
          claimed_by = null
    where id = p_delivery_id
+     and status = 'CLAIMED'
+     and claimed_by = p_worker
    returning attempts into v_attempts;
+
+  if not found then
+    raise exception 'delivery % is not currently claimed by %', p_delivery_id, p_worker;
+  end if;
 
   -- DEAD is visible, never silent. `select * from notification_deliveries where
   -- status = 'DEAD'` is the "who did we fail to reach" report, and for
@@ -594,9 +630,9 @@ end;
 $$;
 
 revoke all on function eworks.claim_deliveries(eworks.notification_channel, int, text) from public;
-revoke all on function eworks.complete_delivery(bigint, boolean, text) from public;
+revoke all on function eworks.complete_delivery(bigint, text, boolean, text) from public;
 
 grant execute on function eworks.claim_deliveries(eworks.notification_channel, int, text)
   to eworks_notifier;
-grant execute on function eworks.complete_delivery(bigint, boolean, text)
+grant execute on function eworks.complete_delivery(bigint, text, boolean, text)
   to eworks_notifier;
