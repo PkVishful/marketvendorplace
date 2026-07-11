@@ -99,7 +99,9 @@ Renders children only when the session holds `perm` (any-of if given an array). 
 ## 5. Definition of done
 
 - `/api/me` returns `permissions[]`, `vendorStatus`, and per-role `orgLevel`/`orgPath`; verified end-to-end against a real seeded user.
-- `navConfig` derives gov tabs from `permissions[]`; **existing users see exactly the same tabs as before** (regression-checked against the seed).
+- `navConfig` derives gov tabs from `permissions[]`. Visibility is **not** byte-identical to the old role-lists — it is **additive and permission-faithful**: no role loses a tab, and several gain *read* tabs matching permissions they already hold (verified against the seed):
+  - AUDITOR +planner/orders/vendors/ratings/analytics; SITE_ENGINEER +vendors/ratings/analytics; EXECUTIVE_ENGINEER +vendors; DISTRICT_OFFICER +planner.
+  - These are read surfaces; RLS still blocks any write the role lacks. Per-action write gating (e.g. the Vendors approve button behind `vendor.approve`) is Phase 2.
 - `PermissionGate` + selectors exist with tests; `npm run test` green; `npm run build` succeeds.
 - No schema changes; BFF remains the only `eworks` data path.
 
@@ -108,3 +110,4 @@ Renders children only when the session holds `perm` (any-of if given an array). 
 - `SUPERINTENDING_ENGINEER` appears in nav but has **no** seeded `role_permissions`. Under the new mapping such a user would see only Dashboard. This is faithful to the data (they hold no permissions) and is a **seed gap to raise**, not a Phase 1 regression to paper over. Flag to the team; do not invent grants here.
 - Multi-role users: `primaryOrgLevel` picks the shallowest level; documented so P2 dashboards build on a defined rule.
 - `permissions[]` is "held anywhere," so the UI may show a tab whose action RLS later denies at a specific scope — acceptable (UX only), and the eventual action still fails closed server-side.
+- **Tab broadening:** because the old role-lists were not permission-aligned, switching to permissions widens some roles' *read* visibility (see DoD). This is the correct consequence of the model, not a bug — but it is a visible change to flag. If narrower visibility is wanted, tighten specific tabs to a stricter permission (e.g. Vendors → `vendor.approve` only), a one-line change per tab.

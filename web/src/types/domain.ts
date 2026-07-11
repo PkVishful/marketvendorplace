@@ -4,9 +4,27 @@
 
 export type Portal = 'vendor' | 'gov' | 'unknown';
 
+// Government org hierarchy, shallowest → deepest. Mirrors the eworks.org_level
+// enum; declaration order IS the authority order (STATE is highest).
+export const ORG_LEVELS = [
+  'STATE',
+  'DISTRICT',
+  'DIVISION',
+  'CIRCLE',
+  'SUBDIVISION',
+  'SECTION',
+] as const;
+
+export type OrgLevel = (typeof ORG_LEVELS)[number];
+
+// Vendor KYC lifecycle, mirrors the eworks.vendor_status enum.
+export type VendorStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+
 export interface UserRole {
   code: string;
   orgName: string;
+  orgLevel: OrgLevel;
+  orgPath: string;
 }
 
 export interface Session {
@@ -16,8 +34,10 @@ export interface Session {
   fullName?: string;
   portal?: Portal;
   roles?: UserRole[];
+  permissions?: string[];
   vendorId?: string | null;
   vendorName?: string | null;
+  vendorStatus?: VendorStatus | null;
 }
 
 export function portalHomePath(portal: Portal | undefined): string {
