@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useSession, useSignOut } from '@/auth/useSession';
@@ -16,30 +15,20 @@ import {
   unreadCount,
 } from '@/features/notifications/useNotifications';
 import { portalHomePathForSession, resolvePortal, type Portal, type Session } from '@/types/domain';
+import { useTheme } from '@/hooks/useTheme';
 
 function portalForSession(session: Pick<Session, 'userId' | 'portal'>) {
   return resolvePortal(session as Session) ?? devUserById(session.userId)?.portal;
-}
-
-type Theme = 'light' | 'dark';
-
-function useTheme(): [Theme, () => void] {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const stored = localStorage.getItem('eworks-theme');
-    if (stored === 'light' || stored === 'dark') return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('eworks-theme', theme);
-  }, [theme]);
-  return [theme, () => setTheme((p) => (p === 'dark' ? 'light' : 'dark'))];
 }
 
 function portalFromPath(path: string): 'vendor' | 'gov' | null {
   if (path.startsWith('/vendor')) return 'vendor';
   if (path.startsWith('/gov')) return 'gov';
   return null;
+}
+
+function isDashboardPath(path: string) {
+  return path.startsWith('/gov') || path.startsWith('/vendor');
 }
 
 function isPublicPath(path: string) {
@@ -83,6 +72,7 @@ export function AppShell() {
   const isSignIn = location.pathname === '/sign-in';
   const isPublic = isPublicPath(location.pathname);
   const activePortal = portalFromPath(location.pathname);
+  const useDashboardChrome = isDashboardPath(location.pathname);
   const dev = devUserById(session?.userId);
   const { data: notifications } = useNotifications({
     enabled: Boolean(session?.authenticated && activePortal === 'vendor'),
@@ -102,13 +92,19 @@ export function AppShell() {
     ? `Tamil Nadu › ${primaryOrgScope(session)}`
     : undefined;
 
+  const showLegacyChrome = !isSignIn && !isPublic && !useDashboardChrome;
+
   return (
-    <div className="flex min-h-full flex-col bg-ground">
-      {!isSignIn && (
+    <div
+      className={`flex flex-col ${isSignIn ? '' : 'bg-ground'} ${
+        useDashboardChrome ? 'h-screen overflow-hidden' : 'min-h-full'
+      }`}
+    >
+      {showLegacyChrome && (
         <>
           <GovHeader
-            portal={isPublic ? null : activePortal}
-            userName={isPublic ? undefined : (dev?.label ?? session?.fullName)}
+            portal={activePortal}
+            userName={dev?.label ?? session?.fullName}
             roleLabel={session?.authenticated ? primaryRoleLabel(session) : undefined}
             notificationHref={
               activePortal === 'vendor' && session?.authenticated
@@ -116,7 +112,7 @@ export function AppShell() {
                 : undefined
             }
             notificationCount={unreadCount(notifications)}
-            onSignOut={!isPublic && session?.authenticated ? handleSignOut : undefined}
+            onSignOut={session?.authenticated ? handleSignOut : undefined}
             theme={theme}
             onToggleTheme={toggleTheme}
             lang={i18n.language}
@@ -128,7 +124,7 @@ export function AppShell() {
         </>
       )}
 
-      <main id="main-content" className="flex-1">
+      <main className={useDashboardChrome ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1'}>
         {isSignIn ? (
           isPending ? (
             <div className="px-4 py-24 text-center text-sm text-ink-3">{t('states.loading')}</div>
@@ -158,7 +154,7 @@ export function AppShell() {
         )}
       </main>
 
-      {!isSignIn && <GovFooter />}
+      {!isSignIn && !useDashboardChrome && <GovFooter />}
     </div>
   );
 }

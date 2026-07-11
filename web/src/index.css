@@ -212,4 +212,189 @@ body {
   .gov-skip-link {
     @apply sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-semibold;
   }
+
+  /* Sign-in split screen */
+  .sign-in-root {
+    @apply flex min-h-screen flex-col lg:flex-row;
+  }
+
+  .sign-in-hero {
+    @apply relative flex w-full flex-1 flex-col justify-center overflow-hidden px-6 py-10 sm:px-10 lg:min-h-screen lg:w-1/2 lg:px-12 lg:py-12;
+    background: linear-gradient(145deg, #0c1f3d 0%, #1a3a6b 42%, #1e4480 100%);
+    color: #fff;
+  }
+
+  .sign-in-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 20%, rgba(224, 160, 45, 0.18), transparent 55%),
+      radial-gradient(ellipse 60% 50% at 90% 80%, rgba(30, 142, 90, 0.12), transparent 50%);
+    pointer-events: none;
+  }
+
+  .sign-in-orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(40px);
+    opacity: 0.45;
+    animation: sign-in-float 12s ease-in-out infinite;
+  }
+
+  .sign-in-orb-a {
+    width: 220px;
+    height: 220px;
+    top: 8%;
+    right: 10%;
+    background: rgba(224, 160, 45, 0.35);
+  }
+
+  .sign-in-orb-b {
+    width: 180px;
+    height: 180px;
+    bottom: 12%;
+    left: 5%;
+    background: rgba(30, 142, 90, 0.28);
+    animation-delay: -4s;
+  }
+
+  .sign-in-glass {
+    @apply relative rounded-2xl border border-white/20 bg-white/10 px-5 py-4 backdrop-blur-md;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  .sign-in-panel {
+    @apply relative flex w-full flex-1 flex-col bg-white lg:min-h-screen lg:w-1/2;
+    box-shadow: -8px 0 40px rgba(18, 41, 77, 0.08);
+  }
+
+  .sign-in-feature {
+    @apply sign-in-glass flex gap-4 p-4;
+  }
+
+  .sign-in-feature-icon {
+    @apply grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15 text-lg;
+  }
+
+  .sign-in-fade-up {
+    animation: sign-in-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .sign-in-fade-up-d1 {
+    animation-delay: 0.08s;
+  }
+
+  .sign-in-fade-up-d2 {
+    animation-delay: 0.16s;
+  }
+
+  .sign-in-fade-up-d3 {
+    animation-delay: 0.24s;
+  }
+
+  .sign-in-slide-in {
+    animation: sign-in-slide-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .sign-in-tab {
+    @apply flex-1 min-h-[44px] rounded-xl px-3 text-sm font-semibold transition-all duration-200;
+  }
+
+  .sign-in-tab-active {
+    @apply bg-white text-brand shadow-md;
+    box-shadow: 0 4px 14px rgba(26, 58, 107, 0.12);
+  }
+
+  .sign-in-tab-idle {
+    @apply text-slate hover:text-ink;
+  }
+
+  .sign-in-input {
+    @apply min-h-[48px] w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink transition-all duration-200 placeholder:text-ink-3;
+  }
+
+  .sign-in-input:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 4px rgba(26, 58, 107, 0.1);
+    outline: none;
+  }
+
+  .sign-in-persona {
+    @apply flex min-h-[56px] w-full items-center gap-4 rounded-xl border bg-white px-4 py-3 text-left transition-all duration-200 hover:shadow-md disabled:opacity-60;
+    border-color: color-mix(in srgb, var(--line) 80%, transparent);
+  }
+
+  .sign-in-persona:hover {
+    border-color: color-mix(in srgb, var(--brand) 30%, transparent);
+  }
+
+  .dash-shell {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .dash-sidebar {
+    box-shadow: 4px 0 24px rgba(18, 41, 77, 0.2);
+    background: linear-gradient(180deg, var(--brand) 0%, var(--brand-dark) 100%);
+  }
+
+  .dash-nav-link:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(224, 160, 45, 0.55);
+  }
+
+  .dash-kpi {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .dash-kpi:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(26, 58, 107, 0.12);
+  }
+
+  .dash-module:hover {
+    border-color: color-mix(in srgb, var(--brand) 25%, var(--line));
+  }
+
+  .dash-welcome {
+    animation: sign-in-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .dash-home > * + * {
+    animation: sign-in-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.06s;
+  }
+}
+
+@keyframes sign-in-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sign-in-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes sign-in-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(12px, -16px) scale(1.05);
+  }
 }

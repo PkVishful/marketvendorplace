@@ -409,21 +409,27 @@ rollback;
 -- 9. Configurable rules.  s0: "no hardcoded frequencies"
 -- ===========================================================================
 begin;
+-- Cube is now ruled at several stages (foundation/substructure/superstructure);
+-- scope to one so the scalar subquery stays single-row.
 select pg_temp.check('IS 456 volume ladder is stored as data, not code',
   (select frequency_spec -> 'tiers' -> 0 ->> 'samples'
      from eworks.test_stage_rules tsr
      join eworks.test_catalog tc on tc.id = tsr.test_id
-    where tc.code = 'CONCRETE_CUBE_STRENGTH') = '1');
+     join eworks.construction_stage cs on cs.id = tsr.stage_id
+    where tc.code = 'CONCRETE_CUBE_STRENGTH' and cs.code = 'SUPERSTRUCTURE') = '1');
 
 select pg_temp.check('Cube rule is PER_VOLUME with 3 specimens per sample',
   (select frequency_type = 'PER_VOLUME'
       and (frequency_spec ->> 'specimens_per_sample') = '3'
      from eworks.test_stage_rules tsr
      join eworks.test_catalog tc on tc.id = tsr.test_id
-    where tc.code = 'CONCRETE_CUBE_STRENGTH'));
+     join eworks.construction_stage cs on cs.id = tsr.stage_id
+    where tc.code = 'CONCRETE_CUBE_STRENGTH' and cs.code = 'SUPERSTRUCTURE'));
 
+-- Assert each test carries its expected frequency type (each present at least
+-- once), robust to the same test being ruled across multiple stages.
 select pg_temp.check('Steel is PER_HEAT, cement is PER_CONSIGNMENT, SBC is ONCE',
-  (select count(*) from eworks.test_stage_rules tsr
+  (select count(distinct tc.code) from eworks.test_stage_rules tsr
      join eworks.test_catalog tc on tc.id = tsr.test_id
     where (tc.code,tsr.frequency_type) in
       (('STEEL_TENSILE','PER_HEAT'),

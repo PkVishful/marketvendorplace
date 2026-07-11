@@ -511,8 +511,8 @@ app.get('/api/vendor/jobs', async (req, res) => {
            j.order_id      as "orderId",
            o.milestone,
            o.required_by   as "requiredBy",
-           st_y(o.site)    as lat,
-           st_x(o.site)    as lng,
+           st_y(o.site::geometry) as lat,
+           st_x(o.site::geometry) as lng,
            (select count(*)::int from eworks.samples s where s.job_id = j.id) as "sampleCount"
          from eworks.test_jobs j
          join eworks.test_orders o on o.id = j.order_id
@@ -539,8 +539,8 @@ app.get('/api/vendor/jobs/:id', async (req, res) => {
            j.order_id      as "orderId",
            o.milestone,
            o.required_by   as "requiredBy",
-           st_y(o.site)    as lat,
-           st_x(o.site)    as lng,
+           st_y(o.site::geometry) as lat,
+           st_x(o.site::geometry) as lng,
            v.legal_name    as "vendorName"
          from eworks.test_jobs j
          join eworks.test_orders o on o.id = j.order_id
@@ -1101,6 +1101,10 @@ app.post('/api/gov/orders/:id/award', async (req, res) => {
   if (!userId) return;
   try {
     const row = await withUserSession(userId, async (client) => {
+      // LEFT JOIN, not JOIN: the winning lab can be outside the awarding
+      // officer's org scope (eligibility is by service radius, not org), so an
+      // RLS-scoped read of the vendor may be empty. Award success is decided by
+      // whether finalize_award returned an award row, never by RLS visibility.
       const q = await client.query(
         `select
            a.order_id            as "orderId",
@@ -1111,10 +1115,12 @@ app.post('/api/gov/orders/:id/award', async (req, res) => {
            a.awarded_at          as "awardedAt",
            (select status from eworks.test_orders where id = $1) as "orderStatus"
          from eworks.finalize_award($1) a
-         join eworks.vendors v on v.id = a.vendor_id`,
+         left join eworks.vendors v on v.id = a.vendor_id`,
         [req.params.id],
       );
-      if (q.rowCount === 0) {
+      // finalize_award returns a NULL row when no qualified bid remained (order
+      // FAILED). A real award always has an order_id.
+      if (q.rowCount === 0 || !q.rows[0].orderId) {
         const statusQ = await client.query(
           `select status from eworks.test_orders where id = $1`,
           [req.params.id],
@@ -1209,9 +1215,12 @@ app.post('/api/dev/orders/:id/advance', async (req, res) => {
   try {
     await client.query('begin');
     if (stage === 'reveal') {
+      // Pull floated_at back too, so bid_close_at stays after it (the
+      // orders_close_after_float check) even for a just-floated demo order.
       await client.query(
         `update eworks.test_orders
-            set bid_close_at = now() - interval '1 minute'
+            set floated_at = least(floated_at, now() - interval '2 days'),
+                bid_close_at = now() - interval '1 minute'
           where id = $1 and status = 'FLOATED'`,
         [req.params.id],
       );
@@ -1393,7 +1402,8 @@ app.get('/api/gov/analytics', async (req, res) => {
            coalesce((select sum(amount_paise) from eworks.payments where status = 'HELD'), 0)::bigint as "paymentsHeldPaise",
            coalesce((select sum(amount_paise) from eworks.payments where status = 'RELEASED'), 0)::bigint as "paymentsReleasedPaise",
            (select count(*)::int from eworks.escalations where status = 'OPEN') as "openEscalations",
-           (select count(*)::int from eworks.certificates where signature_verified) as "certificatesVerified"`,
+           (select count(*)::int from eworks.certificates where signature_verified) as "certificatesVerified"
+           from eworks.test_orders`,
       );
       const awardsQ = await client.query(
         `select

@@ -1,31 +1,57 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useSession } from '@/auth/useSession';
-import { PageHero, PortalBody, PortalNav } from '@/components/GovChrome';
+import { useSession, useSignOut } from '@/auth/useSession';
+import { devUserById } from '@/app/devUsers';
+import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { RoleDashboard } from '@/features/gov/RoleDashboard';
-import { govNavForSession } from '@/lib/navConfig';
+import { useTheme } from '@/hooks/useTheme';
+import { govNavForSession, primaryOrgScope, primaryRoleLabel } from '@/lib/navConfig';
 
 export function GovLayout() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: session } = useSession();
+  const signOut = useSignOut();
+  const navigate = useNavigate();
+  const [theme, toggleTheme] = useTheme();
+  const dev = devUserById(session?.userId);
+
   const navItems = govNavForSession(session).map((item) => ({
     to: item.to,
     label: t(item.labelKey),
     end: item.end,
   }));
 
+  function handleSignOut() {
+    signOut.mutate(undefined, { onSuccess: () => navigate('/sign-in') });
+  }
+
+  function handleLangChange(code: string) {
+    void i18n.changeLanguage(code);
+    localStorage.setItem('eworks-lang', code);
+  }
+
+  const orgScope = session?.authenticated
+    ? `Tamil Nadu › ${primaryOrgScope(session)}`
+    : undefined;
+
   return (
-    <>
-      <PageHero
-        eyebrow={t('nav.govBadge')}
-        title={t('gov.title')}
-        description={t('gov.portalDesc')}
-      />
-      <PortalNav ariaLabel={t('nav.gov')} items={navItems} />
-      <PortalBody>
+    <DashboardShell
+      portal="gov"
+      homePath="/gov"
+      navItems={navItems}
+      userName={dev?.label ?? session?.fullName}
+      roleLabel={session?.authenticated ? primaryRoleLabel(session) : undefined}
+      orgScope={orgScope}
+      theme={theme}
+      onToggleTheme={toggleTheme}
+      lang={i18n.language}
+      onLangChange={handleLangChange}
+      onSignOut={handleSignOut}
+    >
+      <div className="mx-auto max-w-portal">
         <Outlet />
-      </PortalBody>
-    </>
+      </div>
+    </DashboardShell>
   );
 }
 

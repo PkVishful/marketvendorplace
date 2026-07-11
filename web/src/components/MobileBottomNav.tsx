@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { NavItem } from '@/lib/navConfig';
+import { NavIcon } from '@/lib/navIcons';
 
 export function MobileBottomNav({ items }: { items: NavItem[] }) {
   const { t } = useTranslation();
@@ -22,8 +23,8 @@ export function MobileBottomNav({ items }: { items: NavItem[] }) {
                 }`
               }
             >
-              <span className="text-lg leading-none" aria-hidden="true">
-                {item.icon ?? '•'}
+              <span className="leading-none" aria-hidden="true">
+                <NavIcon path={item.to} />
               </span>
               <span className="truncate">{t(item.labelKey)}</span>
             </NavLink>

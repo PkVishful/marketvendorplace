@@ -40,10 +40,10 @@ const FIELD_TECH: NavItem[] = [
 ];
 
 export const VENDOR_MOBILE_NAV: NavItem[] = [
-  { to: '/vendor/orders', labelKey: 'nav.orders', icon: '📋', roles: ['LAB_VENDOR'] },
-  { to: '/vendor/jobs', labelKey: 'nav.jobs', icon: '📍' },
-  { to: '/vendor/notifications', labelKey: 'nav.notifications', icon: '🔔' },
-  { to: '/vendor/earnings', labelKey: 'nav.earnings', icon: '₹', roles: ['LAB_VENDOR'] },
+  { to: '/vendor/orders', labelKey: 'nav.orders', roles: ['LAB_VENDOR'] },
+  { to: '/vendor/jobs', labelKey: 'nav.jobs' },
+  { to: '/vendor/notifications', labelKey: 'nav.notifications' },
+  { to: '/vendor/earnings', labelKey: 'nav.earnings', roles: ['LAB_VENDOR'] },
 ];
 
 function roleCodes(session: Session | undefined): string[] {

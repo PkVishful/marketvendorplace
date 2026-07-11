@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useDevLogin } from '@/auth/useSession';
-import { GovHeader } from '@/components/GovChrome';
 import { TnEmblem } from '@/components/TnEmblem';
 import { PhoneSignIn } from '@/features/auth/PhoneSignIn';
+import { LANGUAGES } from '@/i18n';
+import { Building2, Moon, ShieldCheck, Sun, TestTube2 } from '@/lib/navIcons';
 import { DEV_GOV_USERS, DEV_VENDOR_USERS, devUserById } from './devUsers';
 import { portalHomePathForSession, resolvePortal } from '@/types/domain';
 
@@ -21,36 +22,61 @@ function UserGroup({
   onPick: (userId: string) => void;
   disabled: boolean;
 }) {
-  const border = accent === 'gov' ? 'border-l-brand' : 'border-l-success';
+  const dot = accent === 'gov' ? 'bg-brand' : 'bg-success';
 
   return (
-    <div className={`gov-card overflow-hidden border-l-4 ${border}`}>
-      <div className="border-b border-line bg-surface-2 px-5 py-3">
+    <div className="overflow-hidden rounded-2xl border border-line/80 bg-surface-2/40">
+      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+        <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />
         <h2 className="text-sm font-bold text-ink">{title}</h2>
       </div>
-      <div className="flex flex-col divide-y divide-line">
+      <div className="flex flex-col gap-2 p-3">
         {users.map((v) => (
           <button
             key={v.userId}
             type="button"
             disabled={disabled}
             onClick={() => onPick(v.userId)}
-            className="flex min-h-[52px] items-center gap-4 px-5 py-4 text-left transition hover:bg-brand-tint/50 focus-visible:bg-brand-tint disabled:opacity-60"
+            className="sign-in-persona group"
           >
-            <span className="grid h-11 w-11 flex-none place-items-center rounded-xl bg-brand text-xs font-bold text-white">
+            <span className="grid h-11 w-11 flex-none place-items-center rounded-xl bg-brand text-xs font-bold text-white transition-transform group-hover:scale-105">
               {v.label.slice(0, 2).toUpperCase()}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block font-semibold text-ink">{v.label}</span>
               <span className="mt-0.5 block text-xs text-slate">{v.sub}</span>
             </span>
-            <span className="text-slate" aria-hidden="true">
+            <span className="text-brand opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true">
               →
             </span>
           </button>
         ))}
       </div>
     </div>
+  );
+}
+
+function InfoFeature({
+  icon,
+  title,
+  desc,
+  delay,
+}: {
+  icon: ReactNode;
+  title: string;
+  desc: string;
+  delay?: string;
+}) {
+  return (
+    <li className={`sign-in-feature sign-in-fade-up ${delay ?? ''}`}>
+      <span className="sign-in-feature-icon" aria-hidden="true">
+        {icon}
+      </span>
+      <div>
+        <p className="font-semibold text-white">{title}</p>
+        <p className="mt-1 text-sm leading-relaxed text-white/75">{desc}</p>
+      </div>
+    </li>
   );
 }
 
@@ -65,11 +91,10 @@ export function DevSignIn({
   lang: string;
   onLangChange: (code: string) => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const login = useDevLogin();
   const navigate = useNavigate();
   const [tab, setTab] = useState<'phone' | 'dev'>('phone');
-  const isTa = i18n.language === 'ta';
 
   function pick(userId: string) {
     login.mutate(userId, {
@@ -80,101 +105,154 @@ export function DevSignIn({
     });
   }
 
-  return (
-    <div className="min-h-[calc(100vh-var(--header-h))] bg-ground">
-      <GovHeader
-        theme={theme}
-        onToggleTheme={onToggleTheme}
-        lang={lang}
-        onLangChange={onLangChange}
-      />
+  const features = [
+    {
+      icon: <TestTube2 className="h-5 w-5" strokeWidth={2} />,
+      title: t('signIn.forLabsTitle'),
+      desc: t('signIn.forLabsDesc'),
+      delay: 'sign-in-fade-up-d1',
+    },
+    {
+      icon: <Building2 className="h-5 w-5" strokeWidth={2} />,
+      title: t('signIn.forOfficersTitle'),
+      desc: t('signIn.forOfficersDesc'),
+      delay: 'sign-in-fade-up-d2',
+    },
+    {
+      icon: <ShieldCheck className="h-5 w-5" strokeWidth={2} />,
+      title: t('signIn.forPublicTitle'),
+      desc: t('signIn.forPublicDesc'),
+      delay: 'sign-in-fade-up-d3',
+    },
+  ];
 
-      <div className="mx-auto grid max-w-5xl gap-8 px-4 py-10 lg:grid-cols-2 lg:px-6 lg:py-14">
-        <section className="flex flex-col justify-center">
-          <div className="flex items-center gap-4">
-            <TnEmblem className="h-16 w-16" />
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">
-                {t('app.subtitle')}
-              </p>
-              <h1 className="font-display text-3xl font-bold tracking-tight text-ink lg:text-4xl">
-                {t('dev.signInTitle')}
-              </h1>
+  return (
+    <div className="sign-in-root">
+      <section className="sign-in-hero" aria-label={t('dev.signInTitle')}>
+        <div className="sign-in-orb sign-in-orb-a" aria-hidden="true" />
+        <div className="sign-in-orb sign-in-orb-b" aria-hidden="true" />
+
+        <div className="relative z-10 mx-auto w-full max-w-lg">
+          <div className="sign-in-fade-up">
+            <div className="gov-stripe mb-6 max-w-[120px] rounded-full" aria-hidden="true" />
+            <div className="flex items-center gap-4">
+              <TnEmblem tone="onDark" className="h-16 w-auto sm:h-[4.5rem]" />
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-accent">
+                  {t('app.subtitle')}
+                </p>
+                <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+                  {t('app.brand')}
+                </h1>
+              </div>
             </div>
           </div>
-          <p className="mt-6 max-w-md text-sm leading-relaxed text-slate sm:text-base">
-            {t('dev.signInHelp')}
-          </p>
-          <ul className="mt-6 space-y-2 text-sm text-slate">
-            <li className="flex gap-2">
-              <span className="text-success" aria-hidden="true">
-                ✓
-              </span>
-              {t('shell.authBullet1')}
-            </li>
-            <li className="flex gap-2">
-              <span className="text-success" aria-hidden="true">
-                ✓
-              </span>
-              {t('shell.authBullet2')}
-            </li>
-            <li className="flex gap-2">
-              <span className="text-success" aria-hidden="true">
-                ✓
-              </span>
-              {isTa ? t('shell.deptNameTa') : t('shell.deptName')}
-            </li>
+
+          <div className="relative z-10 mt-8 sign-in-fade-up sign-in-fade-up-d1">
+            <h2 className="font-display text-2xl font-bold leading-tight sm:text-3xl">
+              {t('signIn.heroTitle')}
+            </h2>
+            <p className="mt-4 text-sm leading-relaxed text-white/80 sm:text-base">
+              {t('signIn.heroDesc')}
+            </p>
+          </div>
+
+          <ul className="relative z-10 mt-8 space-y-3">
+            {features.map((f) => (
+              <InfoFeature key={f.title} icon={f.icon} title={f.title} desc={f.desc} delay={f.delay} />
+            ))}
           </ul>
-        </section>
 
-        <section>
-          {import.meta.env.DEV && (
-            <div className="mb-4 flex rounded-xl border border-line bg-surface-2 p-1">
-              <button
-                type="button"
-                onClick={() => setTab('phone')}
-                className={`flex-1 min-h-[44px] rounded-lg px-3 text-sm font-semibold transition ${
-                  tab === 'phone' ? 'bg-surface text-ink shadow-sm' : 'text-slate'
-                }`}
-              >
-                {t('auth.tabPhone')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab('dev')}
-                className={`flex-1 min-h-[44px] rounded-lg px-3 text-sm font-semibold transition ${
-                  tab === 'dev' ? 'bg-surface text-ink shadow-sm' : 'text-slate'
-                }`}
-              >
-                {t('auth.tabDev')}
-              </button>
+          <p className="relative z-10 mt-10 text-xs text-white/55">{t('signIn.footer')}</p>
+        </div>
+      </section>
+
+      <section className="sign-in-panel">
+        <div className="flex items-center justify-end gap-2 border-b border-line/60 px-5 py-4 sm:px-8">
+          <select
+            aria-label={t('dev.language')}
+            value={lang}
+            onChange={(e) => onLangChange(e.target.value)}
+            className="sign-in-input max-w-[120px] !min-h-[40px] !py-2 text-xs font-medium"
+          >
+            {LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            aria-label={t('shell.toggleTheme')}
+            className="grid min-h-[40px] min-w-[40px] place-items-center rounded-xl border border-line text-sm transition hover:bg-surface-2"
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-5 w-5" strokeWidth={2} />
+            ) : (
+              <Moon className="h-5 w-5" strokeWidth={2} />
+            )}
+          </button>
+        </div>
+
+        <div className="flex flex-1 flex-col justify-center px-5 py-8 sm:px-10 sm:py-10 lg:px-12">
+          <div className="sign-in-slide-in mx-auto w-full max-w-md">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">
+              {t('dev.signInTitle')}
+            </p>
+            <h2 className="mt-2 font-display text-2xl font-bold text-ink">
+              {tab === 'phone' ? t('auth.phoneTitle') : t('auth.tabDev')}
+            </h2>
+            <p className="mt-2 text-sm text-slate">
+              {tab === 'phone' ? t('auth.phoneHelp') : t('signIn.devHelp')}
+            </p>
+
+            {import.meta.env.DEV && (
+              <div className="mt-6 flex rounded-2xl bg-surface-2 p-1.5">
+                <button
+                  type="button"
+                  onClick={() => setTab('phone')}
+                  className={`sign-in-tab ${tab === 'phone' ? 'sign-in-tab-active' : 'sign-in-tab-idle'}`}
+                >
+                  {t('auth.tabPhone')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab('dev')}
+                  className={`sign-in-tab ${tab === 'dev' ? 'sign-in-tab-active' : 'sign-in-tab-idle'}`}
+                >
+                  {t('auth.tabDev')}
+                </button>
+              </div>
+            )}
+
+            <div className="mt-6">
+              {tab === 'phone' ? (
+                <PhoneSignIn disabled={login.isPending} variant="panel" />
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <UserGroup
+                    title={t('dev.govPortal')}
+                    accent="gov"
+                    users={DEV_GOV_USERS}
+                    onPick={pick}
+                    disabled={login.isPending}
+                  />
+                  <UserGroup
+                    title={t('dev.vendorPortal')}
+                    accent="vendor"
+                    users={DEV_VENDOR_USERS}
+                    onPick={pick}
+                    disabled={login.isPending}
+                  />
+                </div>
+              )}
             </div>
-          )}
 
-          {tab === 'phone' ? (
-            <PhoneSignIn disabled={login.isPending} />
-          ) : (
-            <div className="flex flex-col gap-4">
-              <UserGroup
-                title={t('dev.govPortal')}
-                accent="gov"
-                users={DEV_GOV_USERS}
-                onPick={pick}
-                disabled={login.isPending}
-              />
-              <UserGroup
-                title={t('dev.vendorPortal')}
-                accent="vendor"
-                users={DEV_VENDOR_USERS}
-                onPick={pick}
-                disabled={login.isPending}
-              />
-            </div>
-          )}
-
-          <p className="mt-6 text-center text-xs text-ink-3">{t('dev.secureNote')}</p>
-        </section>
-      </div>
+            <p className="mt-8 text-center text-xs text-ink-3">{t('signIn.rightFooter')}</p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

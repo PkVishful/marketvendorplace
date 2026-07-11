@@ -13,6 +13,8 @@ export const ORG_LEVELS = [
   'CIRCLE',
   'SUBDIVISION',
   'SECTION',
+  'FIELD_UNIT',
+  'PROJECT',
 ] as const;
 
 export type OrgLevel = (typeof ORG_LEVELS)[number];
