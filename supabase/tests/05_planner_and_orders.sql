@@ -135,11 +135,19 @@ select pg_temp.check_raises('Missing a required unit raises rather than skipping
 rollback;
 
 begin;
+-- One requirement per governing rule at the stage. Expected count is derived
+-- from the rules themselves so it stays correct as the catalog grows; units for
+-- every non-ONCE rule at SUPERSTRUCTURE must be supplied or generation raises.
 select pg_temp.check('Planner generates one requirement per governing rule',
   eworks.generate_project_requirements(
     '11111111-0000-0000-0000-000000000008', 'SUPERSTRUCTURE',
-    '{"m3": 120, "consignment": 3, "heat": 2, "pour": 1}'::jsonb,
-    current_date + 30) = 4);
+    '{"m3": 120, "consignment": 3, "heat": 2, "pour": 1,
+      "failed_location": 1, "member": 1, "weld": 1}'::jsonb,
+    current_date + 30)
+  = (select count(distinct r.test_id)
+       from eworks.test_stage_rules r
+       join eworks.construction_stage cs on cs.id = r.stage_id
+      where cs.code = 'SUPERSTRUCTURE' and r.is_active));
 
 select pg_temp.check('120 m3 -> 6 cube samples (4 + ceil(70/50))',
   (select planned_count from eworks.project_test_requirements ptr
@@ -161,11 +169,13 @@ select pg_temp.check('Acceptance criteria are SNAPSHOT, not referenced',
      join eworks.test_catalog tc on tc.id = ptr.test_id
     where tc.code = 'CONCRETE_CUBE_STRENGTH') = 'IS 456 cl.16 / project QAP');
 
--- Re-running must not silently double the project's obligations.
+-- Re-running must not silently double the project's obligations. Supply every
+-- unit so it reaches (and is rejected by) the duplicate guard, not the unit check.
 select pg_temp.check_raises('Re-planning the same stage is rejected',
   $$select eworks.generate_project_requirements(
       '11111111-0000-0000-0000-000000000008', 'SUPERSTRUCTURE',
-      '{"m3": 120, "consignment": 3, "heat": 2, "pour": 1}'::jsonb)$$);
+      '{"m3": 120, "consignment": 3, "heat": 2, "pour": 1,
+        "failed_location": 1, "member": 1, "weld": 1}'::jsonb)$$);
 
 select pg_temp.check_raises('Unknown stage code raises',
   $$select eworks.generate_project_requirements(
@@ -173,12 +183,20 @@ select pg_temp.check_raises('Unknown stage code raises',
 rollback;
 
 
--- Zero volume: a stage with nothing poured generates no cube requirement.
+-- Zero volume: a stage with nothing poured generates no cube requirement. Units
+-- must still be present (value 0) or the planner rejects on the missing unit.
+-- (Quantity-independent ONCE rules at this stage may still generate, so assert
+-- specifically that the volume-driven cube requirement is absent.)
 begin;
+select eworks.generate_project_requirements(
+  '11111111-0000-0000-0000-000000000008', 'SUPERSTRUCTURE',
+  '{"m3": 0, "consignment": 0, "heat": 0, "pour": 0,
+    "failed_location": 0, "member": 0, "weld": 0}'::jsonb);
 select pg_temp.check('0 m3 generates no cube requirement',
-  eworks.generate_project_requirements(
-    '11111111-0000-0000-0000-000000000008', 'SUPERSTRUCTURE',
-    '{"m3": 0, "consignment": 0, "heat": 0, "pour": 0}'::jsonb) = 0);
+  not exists (select 1 from eworks.project_test_requirements ptr
+     join eworks.test_catalog tc on tc.id = ptr.test_id
+    where ptr.project_id = '11111111-0000-0000-0000-000000000008'
+      and tc.code = 'CONCRETE_CUBE_STRENGTH'));
 rollback;
 
 

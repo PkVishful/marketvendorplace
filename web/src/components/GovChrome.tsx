@@ -5,6 +5,7 @@ import { LANGUAGES } from '@/i18n';
 import { TnEmblem } from './TnEmblem';
 import { UserMenu } from './UserMenu';
 import { UnreadBadge } from '@/features/notifications/UnreadBadge';
+import { Bell, Moon, Sun } from '@/lib/navIcons';
 
 interface GovHeaderProps {
   portal?: 'vendor' | 'gov' | null;
@@ -47,7 +48,7 @@ export function GovHeader({
             to={portal === 'gov' ? '/gov' : portal === 'vendor' ? '/vendor' : '/'}
             className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:ring-2 focus-visible:ring-accent"
           >
-            <TnEmblem />
+            <TnEmblem tone="onDark" />
             <span className="min-w-0">
               <span className="block truncate font-display text-base font-bold leading-tight sm:text-lg">
                 {t('app.brand')}
@@ -71,9 +72,7 @@ export function GovHeader({
                 aria-label={t('shell.notifications')}
                 className="relative grid min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-white/20 bg-white/10 hover:bg-white/15"
               >
-                <span aria-hidden="true" className="text-lg">
-                  🔔
-                </span>
+                <Bell className="h-5 w-5" strokeWidth={2} />
                 {notificationCount > 0 && (
                   <span className="absolute -right-0.5 -top-0.5">
                     <UnreadBadge count={notificationCount} />
@@ -101,7 +100,11 @@ export function GovHeader({
               aria-label={t('shell.toggleTheme')}
               className="grid min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-white/20 bg-white/10 text-sm hover:bg-white/15"
             >
-              {theme === 'dark' ? '☾' : '☀'}
+              {theme === 'dark' ? (
+                <Sun className="h-5 w-5" strokeWidth={2} />
+              ) : (
+                <Moon className="h-5 w-5" strokeWidth={2} />
+              )}
             </button>
 
             {onSignOut && userName ? (

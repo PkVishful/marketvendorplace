@@ -65,7 +65,10 @@ export async function lookupProfile(userId) {
   if (!profile) return null;
 
   const { rows: roles } = await pool.query(
-    `select ur.role_code as code, ou.name as "orgName"
+    `select ur.role_code as code,
+            ou.name as "orgName",
+            ou.level as "orgLevel",
+            ou.path::text as "orgPath"
        from eworks.user_roles ur
        join eworks.org_units ou on ou.id = ur.org_unit_id
       where ur.user_id = $1
@@ -73,8 +76,24 @@ export async function lookupProfile(userId) {
     [userId],
   );
 
+  // Every permission the user holds at any active, unexpired role. This is the
+  // "held anywhere" set the UI uses to show/hide tabs -- per-scope enforcement
+  // still lives in RLS (eworks.has_permission), never in the client.
+  const { rows: permRows } = await pool.query(
+    `select distinct rp.permission_code as code
+       from eworks.user_roles ur
+       join eworks.role_permissions rp on rp.role_code = ur.role_code
+       join eworks.org_units ou on ou.id = ur.org_unit_id
+      where ur.user_id = $1
+        and (ur.expires_at is null or ur.expires_at > now())
+        and ou.is_active
+      order by rp.permission_code`,
+    [userId],
+  );
+  const permissions = permRows.map((r) => r.code);
+
   const { rows: vendors } = await pool.query(
-    `select id, legal_name as "legalName"
+    `select id, legal_name as "legalName", status as "vendorStatus"
        from eworks.vendors where owner_user_id = $1 limit 1`,
     [userId],
   );
@@ -89,8 +108,10 @@ export async function lookupProfile(userId) {
   return {
     ...profile,
     roles,
+    permissions,
     portal,
     vendorId: vendors[0]?.id ?? null,
     vendorName: vendors[0]?.legalName ?? null,
+    vendorStatus: vendors[0]?.vendorStatus ?? null,
   };
 }

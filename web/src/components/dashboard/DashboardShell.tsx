@@ -1,0 +1,291 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { LANGUAGES } from '@/i18n';
+import { TnEmblem } from '@/components/TnEmblem';
+import { UnreadBadge } from '@/features/notifications/UnreadBadge';
+import { NavIcon, Bell, Menu, Moon, Sun, X } from '@/lib/navIcons';
+
+export interface DashboardNavItem {
+  to: string;
+  label: string;
+  end?: boolean;
+}
+
+interface DashboardShellProps {
+  portal: 'gov' | 'vendor';
+  homePath: string;
+  navItems: DashboardNavItem[];
+  userName?: string;
+  roleLabel?: string;
+  orgScope?: string;
+  notificationHref?: string;
+  notificationCount?: number;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+  lang: string;
+  onLangChange: (code: string) => void;
+  onSignOut: () => void;
+  children: ReactNode;
+}
+
+function DashboardUserMenu({
+  name,
+  roleLabel,
+  onSignOut,
+}: {
+  name?: string;
+  roleLabel?: string;
+  onSignOut: () => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const initials = (name ?? '?')
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((p) => !p)}
+        className="flex min-h-[44px] items-center gap-2 rounded-xl border border-line bg-surface px-2 py-1.5 hover:bg-surface-2 sm:px-3"
+      >
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-xs font-bold text-white">
+          {initials}
+        </span>
+        <span className="hidden max-w-[120px] truncate text-xs font-medium text-ink sm:block">{name}</span>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-50 mt-2 min-w-[12rem] rounded-xl border border-line bg-surface py-1 shadow-card"
+        >
+          <div className="border-b border-line px-4 py-3">
+            <p className="truncate text-sm font-semibold text-ink">{name}</p>
+            {roleLabel && <p className="mt-0.5 text-xs text-slate">{roleLabel}</p>}
+          </div>
+          <button
+            type="button"
+            role="menuitem"
+            className="block w-full px-4 py-3 text-left text-sm font-semibold text-danger hover:bg-danger-bg"
+            onClick={() => {
+              setOpen(false);
+              onSignOut();
+            }}
+          >
+            {t('dev.signOut')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function DashboardShell({
+  portal,
+  homePath,
+  navItems,
+  userName,
+  roleLabel,
+  orgScope,
+  notificationHref,
+  notificationCount = 0,
+  theme,
+  onToggleTheme,
+  lang,
+  onLangChange,
+  onSignOut,
+  children,
+}: DashboardShellProps) {
+  const { t, i18n } = useTranslation();
+  const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isTa = i18n.language === 'ta';
+  const portalBadge = portal === 'gov' ? t('nav.govBadge') : t('nav.vendorBadge');
+
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
+  return (
+    <div className="dash-shell flex h-screen overflow-hidden bg-ground">
+      <a href="#main-content" className="gov-skip-link">
+        {t('shell.skipToContent')}
+      </a>
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label={t('dashboard.closeMenu')}
+          className="fixed inset-0 z-40 bg-brand-dark/40 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`dash-sidebar fixed inset-y-0 left-0 z-50 flex h-screen w-[min(100%,17.5rem)] flex-col bg-brand text-white transition-transform duration-300 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
+        <div className="gov-stripe shrink-0" aria-hidden />
+        <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-4">
+          <Link to={homePath} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:ring-2 focus-visible:ring-accent">
+            <TnEmblem tone="onDark" className="h-10 w-auto" />
+            <span className="min-w-0">
+              <span className="block truncate font-display text-sm font-bold leading-tight">{t('app.brand')}</span>
+              <span className="block truncate text-[10px] text-white/75">{portalBadge}</span>
+            </span>
+          </Link>
+          <button
+            type="button"
+            className="grid min-h-[44px] min-w-[44px] place-items-center rounded-lg text-white/80 hover:bg-white/10 lg:hidden"
+            aria-label={t('dashboard.closeMenu')}
+            onClick={() => setSidebarOpen(false)}
+          >
+            <X className="h-5 w-5" strokeWidth={2} />
+          </button>
+        </div>
+
+        <nav
+          className="min-h-0 flex-1 overflow-y-auto px-3 py-4"
+          aria-label={portal === 'gov' ? t('nav.gov') : t('nav.vendor')}
+        >
+          <ul className="space-y-1">
+            {navItems.map((item) => (
+              <li key={item.to}>
+                <NavLink
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    `dash-nav-link flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                      isActive
+                        ? 'bg-white/15 font-semibold text-white shadow-sm'
+                        : 'text-white/75 hover:bg-white/10 hover:text-white'
+                    }`
+                  }
+                >
+                  <span
+                    className="grid h-8 w-8 place-items-center rounded-lg bg-white/10 text-white/90"
+                    aria-hidden
+                  >
+                    <NavIcon path={item.to} className="h-[18px] w-[18px] text-current" />
+                  </span>
+                  <span className="truncate">{item.label}</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="shrink-0 border-t border-white/10 p-4">
+          <div className="rounded-xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
+            <p className="truncate text-sm font-semibold text-white">{userName ?? '—'}</p>
+            {roleLabel && <p className="mt-0.5 truncate text-xs text-white/70">{roleLabel}</p>}
+            {orgScope && (
+              <p className="mt-2 truncate text-[10px] font-medium uppercase tracking-wide text-white/55">
+                {orgScope}
+              </p>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:ml-[17.5rem]">
+        <header className="z-30 shrink-0 border-b border-line bg-surface/95 backdrop-blur-md">
+          <div className="flex min-h-[3.75rem] items-center gap-2 px-4 sm:gap-3 sm:px-6">
+            <button
+              type="button"
+              className="grid min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-line bg-surface-2 text-lg lg:hidden"
+              aria-label={t('dashboard.openMenu')}
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="h-5 w-5" strokeWidth={2} />
+            </button>
+
+            <div className="hidden min-w-0 flex-1 sm:block">
+              <label className="sr-only" htmlFor="dash-search">
+                {t('dashboard.searchPlaceholder')}
+              </label>
+              <input
+                id="dash-search"
+                type="search"
+                placeholder={t('dashboard.searchPlaceholder')}
+                className="gov-input max-w-md bg-surface-2"
+                disabled
+              />
+            </div>
+
+            <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+              <select
+                aria-label={t('dev.language')}
+                value={lang}
+                onChange={(e) => onLangChange(e.target.value)}
+                className="gov-input hidden w-auto min-w-[5.5rem] py-2 sm:block"
+              >
+                {LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                aria-label={t('shell.toggleTheme')}
+                onClick={onToggleTheme}
+                className="grid min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-line bg-surface-2 text-lg hover:bg-surface-3"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-5 w-5" strokeWidth={2} />
+                ) : (
+                  <Moon className="h-5 w-5" strokeWidth={2} />
+                )}
+              </button>
+
+              {notificationHref && (
+                <Link
+                  to={notificationHref}
+                  aria-label={t('shell.notifications')}
+                  className="relative grid min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-line bg-surface-2 hover:bg-surface-3"
+                >
+                  <Bell className="h-5 w-5" strokeWidth={2} />
+                  {notificationCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5">
+                      <UnreadBadge count={notificationCount} />
+                    </span>
+                  )}
+                </Link>
+              )}
+
+              <DashboardUserMenu name={userName} roleLabel={roleLabel} onSignOut={onSignOut} />
+            </div>
+          </div>
+          {orgScope && (
+            <div className="border-t border-line bg-brand-tint px-4 py-1.5 text-[11px] font-medium text-brand sm:px-6">
+              {isTa ? t('shell.orgScope') : 'Scope'}: {orgScope}
+            </div>
+          )}
+        </header>
+
+        <div id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}

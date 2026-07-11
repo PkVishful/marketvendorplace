@@ -1,22 +1,28 @@
 import type { Session } from '@/types/domain';
+import { hasPermission } from '@/auth/permissions';
 
 export interface NavItem {
   to: string;
   labelKey: string;
   end?: boolean;
   icon?: string;
+  // Permission code(s) that reveal this item; any-of. Absent ⇒ always shown.
+  // Tabs are driven by held permissions, not role names, so a delegated grant
+  // reveals its tab automatically. UX only — RLS still gates the data.
+  requiresPermission?: string | string[];
+  // Vendor nav still keys off role codes until status-mode routing (Phase 3).
   roles?: string[];
 }
 
 const GOV_ALL: NavItem[] = [
   { to: '/gov', labelKey: 'gov.navHome', end: true },
-  { to: '/gov/planner', labelKey: 'gov.planned.planner', roles: ['SITE_ENGINEER', 'EXECUTIVE_ENGINEER', 'HEAD_ADMIN'] },
-  { to: '/gov/orders', labelKey: 'govOrders.nav', roles: ['SITE_ENGINEER', 'EXECUTIVE_ENGINEER', 'DISTRICT_OFFICER', 'SUPERINTENDING_ENGINEER', 'HEAD_ADMIN'] },
-  { to: '/gov/vendors', labelKey: 'govVendors.nav', roles: ['DISTRICT_OFFICER', 'SUPERINTENDING_ENGINEER', 'HEAD_ADMIN'] },
-  { to: '/gov/quality', labelKey: 'quality.nav', roles: ['SITE_ENGINEER', 'EXECUTIVE_ENGINEER', 'DISTRICT_OFFICER', 'SUPERINTENDING_ENGINEER', 'HEAD_ADMIN', 'AUDITOR'] },
-  { to: '/gov/ratings', labelKey: 'ratings.nav', roles: ['EXECUTIVE_ENGINEER', 'DISTRICT_OFFICER', 'SUPERINTENDING_ENGINEER', 'HEAD_ADMIN'] },
-  { to: '/gov/analytics', labelKey: 'analytics.nav', roles: ['EXECUTIVE_ENGINEER', 'DISTRICT_OFFICER', 'SUPERINTENDING_ENGINEER', 'HEAD_ADMIN'] },
-  { to: '/gov/audit', labelKey: 'audit.nav', roles: ['DISTRICT_OFFICER', 'EXECUTIVE_ENGINEER', 'AUDITOR', 'HEAD_ADMIN'] },
+  { to: '/gov/planner', labelKey: 'gov.planned.planner', requiresPermission: ['order.float', 'order.read'] },
+  { to: '/gov/orders', labelKey: 'govOrders.nav', requiresPermission: 'order.read' },
+  { to: '/gov/vendors', labelKey: 'govVendors.nav', requiresPermission: ['vendor.read', 'vendor.approve'] },
+  { to: '/gov/quality', labelKey: 'quality.nav', requiresPermission: ['result.verify', 'order.read'] },
+  { to: '/gov/ratings', labelKey: 'ratings.nav', requiresPermission: 'vendor.read' },
+  { to: '/gov/analytics', labelKey: 'analytics.nav', requiresPermission: 'order.read' },
+  { to: '/gov/audit', labelKey: 'audit.nav', requiresPermission: ['audit.read', 'audit.read_all'] },
 ];
 
 const VENDOR_OWNER: NavItem[] = [
@@ -34,10 +40,10 @@ const FIELD_TECH: NavItem[] = [
 ];
 
 export const VENDOR_MOBILE_NAV: NavItem[] = [
-  { to: '/vendor/orders', labelKey: 'nav.orders', icon: '📋', roles: ['LAB_VENDOR'] },
-  { to: '/vendor/jobs', labelKey: 'nav.jobs', icon: '📍' },
-  { to: '/vendor/notifications', labelKey: 'nav.notifications', icon: '🔔' },
-  { to: '/vendor/earnings', labelKey: 'nav.earnings', icon: '₹', roles: ['LAB_VENDOR'] },
+  { to: '/vendor/orders', labelKey: 'nav.orders', roles: ['LAB_VENDOR'] },
+  { to: '/vendor/jobs', labelKey: 'nav.jobs' },
+  { to: '/vendor/notifications', labelKey: 'nav.notifications' },
+  { to: '/vendor/earnings', labelKey: 'nav.earnings', roles: ['LAB_VENDOR'] },
 ];
 
 function roleCodes(session: Session | undefined): string[] {
@@ -50,9 +56,9 @@ function hasAnyRole(codes: string[], allowed?: string[]): boolean {
 }
 
 export function govNavForSession(session: Session | undefined): NavItem[] {
-  const codes = roleCodes(session);
-  if (codes.includes('HEAD_ADMIN')) return GOV_ALL;
-  return GOV_ALL.filter((item) => hasAnyRole(codes, item.roles ?? []));
+  return GOV_ALL.filter(
+    (item) => !item.requiresPermission || hasPermission(session, item.requiresPermission),
+  );
 }
 
 export function vendorNavForSession(session: Session | undefined): NavItem[] {
