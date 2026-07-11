@@ -5,6 +5,7 @@
 node_modules/
 supabase/.branches/
 supabase/.temp/
+web/server/dev-uploads/
 
 # Generated: rebuild with scripts/gen-bundle.sh
 supabase/bundle/
