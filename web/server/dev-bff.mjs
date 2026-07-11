@@ -399,7 +399,12 @@ app.get('/api/vendor/orders/:id', async (req, res) => {
            st_x(o.site::geometry) as lng,
            ou.name             as "orgName"
          from eworks.test_orders o
-         join eworks.org_units ou on ou.id = o.org_unit_id
+         -- LEFT JOIN, not INNER: a vendor's order eligibility is geo-radius based
+         -- and deliberately crosses district lines, but org_units RLS is
+         -- district-scoped. An INNER JOIN here drops the order to zero rows for a
+         -- cross-district eligible vendor, 404-ing a tender it sees on the board
+         -- and is entitled to bid on. orgName is non-essential for the vendor.
+         left join eworks.org_units ou on ou.id = o.org_unit_id
         where o.id = $1`,
         [req.params.id],
       );
