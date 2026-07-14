@@ -2,7 +2,7 @@
 // Pure: pass the env object in (process.env by default) so it is trivially
 // testable without module-cache tricks.
 
-const REQUIRED_IN_PROD = ['OTP_PEPPER', 'CORS_ORIGIN'];
+const REQUIRED_IN_PROD = ['OTP_PEPPER', 'CORS_ORIGIN', 'SESSION_SECRET'];
 
 export function loadConfig(rawEnv = process.env) {
   const isProd = rawEnv.EWORKS_ENV === 'production';
@@ -28,6 +28,12 @@ export function loadConfig(rawEnv = process.env) {
     corsOrigin: rawEnv.CORS_ORIGIN || null,
     cookieSecure: isProd,
     otpPepper: rawEnv.OTP_PEPPER || 'dev-insecure-pepper',
+    sessionSecret: rawEnv.SESSION_SECRET || 'dev-insecure-session-secret',
+    msg91: Object.freeze({
+      authKey: rawEnv.MSG91_AUTH_KEY || null,
+      templateId: rawEnv.MSG91_TEMPLATE_ID || null,
+      senderId: rawEnv.MSG91_SENDER_ID || null,
+    }),
     otpTtlMs: Number(rawEnv.OTP_TTL_MS || 5 * 60 * 1000),
     otpMaxAttempts: Number(rawEnv.OTP_MAX_ATTEMPTS || 5),
     rateLimit: Object.freeze({

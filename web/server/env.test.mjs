@@ -6,6 +6,7 @@ const prodBase = {
   EWORKS_ENV: 'production',
   OTP_PEPPER: 'x'.repeat(32),
   CORS_ORIGIN: 'https://getlegal.anvastech.in',
+  SESSION_SECRET: 's'.repeat(32),
   EWORKS_USE_LOCAL_PG: '1',
 };
 
@@ -39,5 +40,17 @@ describe('loadConfig', () => {
   it('is frozen', () => {
     const c = loadConfig({});
     expect(() => { c.isProd = true; }).toThrow();
+  });
+
+  it('throws in production when SESSION_SECRET is missing', () => {
+    const { SESSION_SECRET, ...rest } = prodBase;
+    expect(() => loadConfig(rest)).toThrow(/SESSION_SECRET/);
+  });
+
+  it('exposes sessionSecret and a frozen msg91 block', () => {
+    const c = loadConfig({ ...prodBase, MSG91_AUTH_KEY: 'k', MSG91_TEMPLATE_ID: 't' });
+    expect(c.sessionSecret).toBe('s'.repeat(32));
+    expect(c.msg91).toEqual({ authKey: 'k', templateId: 't', senderId: null });
+    expect(() => { c.msg91.authKey = 'x'; }).toThrow();
   });
 });

@@ -18,7 +18,8 @@ afterEach(() => new Promise((r) => (open ? open.close(r) : r())));
 
 const prod = loadConfig({
   EWORKS_ENV: 'production', OTP_PEPPER: 'p'.repeat(32),
-  CORS_ORIGIN: 'https://getlegal.anvastech.in', EWORKS_USE_LOCAL_PG: '1',
+  CORS_ORIGIN: 'https://getlegal.anvastech.in', SESSION_SECRET: 's'.repeat(32),
+  EWORKS_USE_LOCAL_PG: '1',
 });
 const dev = loadConfig({});
 

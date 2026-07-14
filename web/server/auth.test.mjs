@@ -8,7 +8,8 @@ import {
 const devCfg = loadConfig({});
 const prodCfg = loadConfig({
   EWORKS_ENV: 'production', OTP_PEPPER: 'pepper-'.repeat(4),
-  CORS_ORIGIN: 'https://getlegal.anvastech.in', EWORKS_USE_LOCAL_PG: '1',
+  CORS_ORIGIN: 'https://getlegal.anvastech.in', SESSION_SECRET: 's'.repeat(32),
+  EWORKS_USE_LOCAL_PG: '1',
 });
 // Capture the delivered code so the test can verify with the real value.
 function captureProvider() {
