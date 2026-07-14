@@ -2,6 +2,8 @@
 // never a real-user delivery path). A real SMS adapter implements the same
 // async send({ phone, code, purpose }) and is selected via config.provider.
 
+import { Msg91Provider } from './msg91.mjs';
+
 export class ConsoleSink {
   async send({ phone, code, purpose }) {
     console.log(`[otp:${purpose}] code for ${phone}: ${code}`);
@@ -16,6 +18,8 @@ export function selectProvider(config) {
   switch (config.provider) {
     case 'console':
       return new ConsoleSink();
+    case 'msg91':
+      return new Msg91Provider(config);
     default:
       throw new Error(`unknown OTP provider: ${config.provider}`);
   }
