@@ -23,6 +23,7 @@ import {
   fetchProcurementAnalytics,
   fetchAuditChain,
   fetchAuditLog,
+  fetchGovOfficers,
 } from './api';
 
 export function useGovProjects() {
@@ -232,6 +233,14 @@ export function useAuditLogInfinite(enabled = true) {
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (lastPage) =>
       lastPage.length >= 50 ? lastPage[lastPage.length - 1]?.seq : undefined,
+    enabled,
+  });
+}
+
+export function useGovOfficers(enabled = true) {
+  return useQuery({
+    queryKey: govKeys.officers,
+    queryFn: fetchGovOfficers,
     enabled,
   });
 }

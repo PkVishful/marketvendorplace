@@ -17,6 +17,7 @@ import {
   validateOtpCode,
 } from './auth.mjs';
 import { saveKycDocument, readKycDocument } from './kyc-upload.mjs';
+import { saveContractorDocument, readContractorDocument } from './kyc-upload.mjs';
 
 const app = express();
 const PORT = Number(process.env.BFF_PORT || 8787);
@@ -33,6 +34,11 @@ const KYC_DOC_TYPES = [
 ];
 
 const KYC_REQUIRED_DOCS = ['GST_CERTIFICATE', 'PAN_COMPANY', 'NABL_CERTIFICATE', 'ADDRESS_PROOF', 'ID_PROOF'];
+
+// Contractor KYC — mirrors the vendor set, minus accreditation (contractors are
+// not labs). Matches the eworks.contractor_doc_type enum.
+const CONTRACTOR_DOC_TYPES = ['PAN', 'GST_CERTIFICATE', 'LICENCE', 'ADDRESS_PROOF', 'ID_PROOF', 'BANK_PROOF'];
+const CONTRACTOR_REQUIRED_DOCS = ['PAN', 'GST_CERTIFICATE', 'LICENCE', 'ID_PROOF', 'BANK_PROOF'];
 
 app.use(express.json({ limit: '6mb' }));
 
@@ -1548,6 +1554,64 @@ app.get('/api/gov/audit', async (req, res) => {
   }
 });
 
+// Officers directory — RLS-scoped via user.read / user_roles policies.
+// Returns one row per role grant (a person with two roles appears twice).
+app.get('/api/gov/officers', async (req, res) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  try {
+    const rows = await withUserSession(userId, async (client) => {
+      const q = await client.query(
+        `select
+           p.id              as "userId",
+           p.phone,
+           p.full_name       as "fullName",
+           p.is_active       as "isActive",
+           ur.role_code      as "roleCode",
+           r.name            as "roleName",
+           ou.id             as "orgUnitId",
+           ou.name           as "orgName",
+           ou.level          as "orgLevel",
+           ou.path::text     as "orgPath",
+           ur.granted_at     as "grantedAt",
+           ur.expires_at     as "expiresAt"
+         from eworks.user_roles ur
+         join eworks.user_profiles p on p.id = ur.user_id
+         join eworks.org_units ou on ou.id = ur.org_unit_id
+         left join eworks.roles r on r.code = ur.role_code
+        where ur.role_code in (
+          'HEAD_ADMIN',
+          'DISTRICT_OFFICER',
+          'SUPERINTENDING_ENGINEER',
+          'EXECUTIVE_ENGINEER',
+          'SITE_ENGINEER',
+          'AUDITOR'
+        )
+          and (ur.expires_at is null or ur.expires_at > now())
+          and ou.is_active
+        order by
+          case ou.level
+            when 'STATE' then 0
+            when 'DISTRICT' then 1
+            when 'DIVISION' then 2
+            when 'CIRCLE' then 3
+            when 'SUBDIVISION' then 4
+            when 'SECTION' then 5
+            when 'FIELD_UNIT' then 6
+            else 7
+          end,
+          ou.name,
+          ur.role_code,
+          p.full_name`,
+      );
+      return q.rows;
+    });
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'query_failed', detail: err.message });
+  }
+});
+
 app.get('/api/gov/vendors', async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -2009,6 +2073,251 @@ app.post('/api/gov/vendors/:id/documents/:docType/review', async (req, res) => {
     res.json(row);
   } catch (err) {
     res.status(400).json({ error: 'doc_review_failed', detail: err.message });
+  }
+});
+
+// ===========================================================================
+// Contractor portal — registration/KYC (mirrors vendor onboarding) + contracts
+// ===========================================================================
+async function fetchContractorOnboarding(client) {
+  const cQ = await client.query(
+    `select c.id, c.legal_name as "legalName", c.gstin, c.pan, c.address,
+            c.licence_class as "licenceClass", c.licence_no as "licenceNo",
+            c.status, ou.name as "districtName"
+       from eworks.contractors c
+       join eworks.org_units ou on ou.id = c.org_unit_id
+      where c.owner_user_id = eworks.current_user_id()
+      limit 1`,
+  );
+  const contractor = cQ.rows[0] ?? null;
+  if (!contractor) return { contractor: null, documents: [] };
+
+  const docsQ = await client.query(
+    `select id, doc_type as "docType", status, mime_type as "mimeType",
+            storage_path as "storagePath", reject_reason as "rejectReason"
+       from eworks.contractor_documents
+      where contractor_id = $1
+      order by doc_type`,
+    [contractor.id],
+  );
+  return { contractor, documents: docsQ.rows };
+}
+
+app.get('/api/contractor/onboarding', async (req, res) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  try {
+    const payload = await withUserSession(userId, (client) => fetchContractorOnboarding(client));
+    res.json(payload);
+  } catch (err) {
+    res.status(500).json({ error: 'query_failed', detail: err.message });
+  }
+});
+
+app.post('/api/contractor/onboarding/profile', async (req, res) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  const { legalName, gstin, pan, address, licenceClass, licenceNo } = req.body || {};
+  if (!legalName || !gstin || !pan || !address || !licenceClass || !licenceNo) {
+    return res.status(400).json({ error: 'missing_required_fields' });
+  }
+  try {
+    const row = await withUserSession(userId, async (client) => {
+      const districtQ = await client.query(
+        `select ur.org_unit_id as id
+           from eworks.user_roles ur
+          where ur.user_id = eworks.current_user_id()
+            and ur.role_code = 'CONTRACTOR'
+          limit 1`,
+      );
+      const districtId = districtQ.rows[0]?.id;
+      if (!districtId) throw new Error('no CONTRACTOR district on account');
+
+      const existingQ = await client.query(
+        `select id, status from eworks.contractors where owner_user_id = eworks.current_user_id()`,
+      );
+      const existing = existingQ.rows[0];
+      if (existing && !['DRAFT', 'REJECTED'].includes(existing.status)) {
+        throw new Error('contractor profile is locked after submission');
+      }
+
+      const params = [
+        legalName.trim(),
+        gstin.trim().toUpperCase(),
+        pan.trim().toUpperCase(),
+        address.trim(),
+        licenceClass.trim(),
+        licenceNo.trim(),
+        districtId,
+      ];
+
+      if (existing) {
+        const u = await client.query(
+          `update eworks.contractors
+              set legal_name = $1, gstin = $2, pan = $3, address = $4,
+                  licence_class = $5, licence_no = $6, org_unit_id = $7, updated_at = now()
+            where id = $8 and owner_user_id = eworks.current_user_id()
+              and status in ('DRAFT', 'REJECTED')
+          returning id, status`,
+          [...params, existing.id],
+        );
+        if (u.rowCount === 0) throw new Error('update failed — check contractor status');
+        return u.rows[0];
+      }
+
+      const i = await client.query(
+        `insert into eworks.contractors
+           (owner_user_id, org_unit_id, legal_name, gstin, pan, address, licence_class, licence_no, status)
+         values (eworks.current_user_id(), $7, $1, $2, $3, $4, $5, $6, 'DRAFT')
+         returning id, status`,
+        params,
+      );
+      return i.rows[0];
+    });
+    res.json(row);
+  } catch (err) {
+    res.status(400).json({ error: 'profile_failed', detail: err.message });
+  }
+});
+
+app.post('/api/contractor/onboarding/documents', async (req, res) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  const { docType, dataUrl, mimeType } = req.body || {};
+  if (!docType || !dataUrl) return res.status(400).json({ error: 'docType and dataUrl required' });
+  if (!CONTRACTOR_DOC_TYPES.includes(docType)) return res.status(400).json({ error: 'invalid_doc_type' });
+  try {
+    const row = await withUserSession(userId, async (client) => {
+      const cQ = await client.query(
+        `select id from eworks.contractors
+          where owner_user_id = eworks.current_user_id() and status in ('DRAFT', 'REJECTED')`,
+      );
+      if (cQ.rowCount === 0) throw new Error('save profile first');
+      const contractorId = cQ.rows[0].id;
+
+      const saved = await saveContractorDocument(contractorId, docType, dataUrl, mimeType);
+      await client.query(
+        `delete from eworks.contractor_documents where contractor_id = $1 and doc_type = $2::eworks.contractor_doc_type`,
+        [contractorId, docType],
+      );
+      const q = await client.query(
+        `insert into eworks.contractor_documents
+           (contractor_id, doc_type, storage_path, mime_type, sha256, scanned_clean, status)
+         values ($1, $2::eworks.contractor_doc_type, $3, $4, $5, true, 'PENDING')
+         returning id, doc_type as "docType", status, mime_type as "mimeType", storage_path as "storagePath"`,
+        [contractorId, docType, saved.storagePath, saved.mimeType, saved.sha256],
+      );
+      return q.rows[0];
+    });
+    res.status(201).json(row);
+  } catch (err) {
+    res.status(400).json({ error: 'upload_failed', detail: err.message });
+  }
+});
+
+app.post('/api/contractor/onboarding/submit', async (req, res) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  try {
+    const row = await withUserSession(userId, async (client) => {
+      const bundle = await fetchContractorOnboarding(client);
+      if (!bundle.contractor) throw new Error('complete profile first');
+      if (!['DRAFT', 'REJECTED'].includes(bundle.contractor.status)) throw new Error('already submitted');
+      const uploaded = new Set(bundle.documents.map((d) => d.docType));
+      for (const reqDoc of CONTRACTOR_REQUIRED_DOCS) {
+        if (!uploaded.has(reqDoc)) throw new Error(`missing document: ${reqDoc}`);
+      }
+      const q = await client.query(
+        `update eworks.contractors set status = 'SUBMITTED', updated_at = now()
+          where id = $1 and owner_user_id = eworks.current_user_id()
+            and status in ('DRAFT', 'REJECTED')
+          returning id, legal_name as "legalName", status`,
+        [bundle.contractor.id],
+      );
+      if (q.rowCount === 0) throw new Error('submit failed');
+      return q.rows[0];
+    });
+    res.json(row);
+  } catch (err) {
+    res.status(400).json({ error: 'submit_failed', detail: err.message });
+  }
+});
+
+app.get('/api/contractor/files/:contractorId/:docType', async (req, res) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  try {
+    const meta = await withUserSession(userId, async (client) => {
+      const q = await client.query(
+        `select d.storage_path as "storagePath", d.mime_type as "mimeType"
+           from eworks.contractor_documents d
+          where d.contractor_id = $1 and d.doc_type = $2::eworks.contractor_doc_type`,
+        [req.params.contractorId, req.params.docType],
+      );
+      return q.rows[0] ?? null;
+    });
+    if (!meta) return res.status(404).json({ error: 'not_found' });
+    const bytes = await readContractorDocument(meta.storagePath);
+    res.setHeader('Content-Type', meta.mimeType);
+    res.send(bytes);
+  } catch (err) {
+    res.status(404).json({ error: 'file_not_found', detail: err.message });
+  }
+});
+
+// Contracts a contractor may see (RLS): open FLOATED ones to bid on, plus any
+// they hold. Includes their own current bid, if placed.
+app.get('/api/contractor/contracts', async (req, res) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  try {
+    const rows = await withUserSession(userId, async (client) => {
+      const q = await client.query(
+        `select c.id, c.code, c.title, c.value_paise as "valuePaise", c.status,
+                ou.name as "projectName",
+                b.amount_paise as "myBidPaise", b.submitted_at as "myBidAt"
+           from eworks.contracts c
+           left join eworks.org_units ou on ou.id = c.project_id
+           left join eworks.contract_bids b
+             on b.contract_id = c.id
+            and b.contractor_id = (select id from eworks.contractors
+                                    where owner_user_id = eworks.current_user_id())
+          where c.status in ('FLOATED', 'AWARDED')
+          order by (c.status = 'FLOATED') desc, c.created_at desc`,
+      );
+      return q.rows;
+    });
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'query_failed', detail: err.message });
+  }
+});
+
+app.post('/api/contractor/contracts/:id/bid', async (req, res) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  const { amountPaise } = req.body || {};
+  const amount = Number(amountPaise);
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'invalid_amount' });
+  try {
+    const row = await withUserSession(userId, async (client) => {
+      const q = await client.query(
+        `insert into eworks.contract_bids (contract_id, contractor_id, amount_paise)
+         select $1, ctr.id, $2
+           from eworks.contractors ctr
+          where ctr.owner_user_id = eworks.current_user_id() and ctr.status = 'APPROVED'
+            and exists (select 1 from eworks.contracts c where c.id = $1 and c.status = 'FLOATED')
+         on conflict (contract_id, contractor_id)
+           do update set amount_paise = excluded.amount_paise, submitted_at = now()
+         returning id, amount_paise as "amountPaise"`,
+        [req.params.id, Math.round(amount)],
+      );
+      if (q.rowCount === 0) throw new Error('cannot bid — contract not open or contractor not approved');
+      return q.rows[0];
+    });
+    res.status(201).json(row);
+  } catch (err) {
+    res.status(400).json({ error: 'bid_failed', detail: err.message });
   }
 });
 

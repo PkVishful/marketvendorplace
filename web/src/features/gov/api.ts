@@ -12,6 +12,7 @@ import type {
   AuditLogRow,
   AuditChainStatus,
   ProcurementAnalyticsDTO,
+  GovOfficerRow,
 } from '@/types/domain';
 
 export const govKeys = {
@@ -27,6 +28,7 @@ export const govKeys = {
   analytics: ['gov', 'analytics'] as const,
   audit: (before?: number) => ['gov', 'audit', before ?? 'start'] as const,
   auditChain: ['gov', 'audit', 'chain'] as const,
+  officers: ['gov', 'officers'] as const,
 };
 
 export function fetchGovProjects() {
@@ -159,4 +161,8 @@ export function fetchAuditChain() {
 export function fetchAuditLog(before?: number) {
   const q = before ? `?before=${before}` : '';
   return apiClient.get<AuditLogRow[]>(`/api/gov/audit${q}`);
+}
+
+export function fetchGovOfficers() {
+  return apiClient.get<GovOfficerRow[]>('/api/gov/officers');
 }

@@ -213,13 +213,13 @@ body {
     @apply sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-semibold;
   }
 
-  /* Sign-in split screen */
+  /* Sign-in split screen — left branding fixed; right panel scrolls alone on desktop */
   .sign-in-root {
-    @apply flex min-h-screen flex-col lg:flex-row;
+    @apply flex min-h-screen flex-col lg:h-dvh lg:min-h-0 lg:flex-row lg:overflow-hidden;
   }
 
   .sign-in-hero {
-    @apply relative flex w-full flex-1 flex-col justify-center overflow-hidden px-6 py-10 sm:px-10 lg:min-h-screen lg:w-1/2 lg:px-12 lg:py-12;
+    @apply relative flex w-full flex-1 flex-col justify-center overflow-hidden px-6 py-10 sm:px-10 lg:h-full lg:w-1/2 lg:flex-none lg:overflow-hidden lg:px-12 lg:py-12;
     background: linear-gradient(145deg, #0c1f3d 0%, #1a3a6b 42%, #1e4480 100%);
     color: #fff;
   }
@@ -265,7 +265,7 @@ body {
   }
 
   .sign-in-panel {
-    @apply relative flex w-full flex-1 flex-col bg-white lg:min-h-screen lg:w-1/2;
+    @apply relative flex w-full flex-1 flex-col bg-white lg:h-full lg:min-h-0 lg:w-1/2 lg:overflow-y-auto;
     box-shadow: -8px 0 40px rgba(18, 41, 77, 0.08);
   }
 
@@ -359,6 +359,10 @@ body {
 
   .dash-welcome {
     animation: sign-in-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .dash-footer {
+    background: linear-gradient(180deg, var(--brand-dark) 0%, #0c1f3d 100%);
   }
 
   .dash-home > * + * {

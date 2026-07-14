@@ -10,6 +10,7 @@ import { VendorsPage } from '@/features/gov/VendorsPage';
 import { QualityDashboardPage } from '@/features/gov/QualityDashboardPage';
 import { VendorRatingsPage } from '@/features/gov/VendorRatingsPage';
 import { AuditLogPage } from '@/features/gov/AuditLogPage';
+import { OfficersPage } from '@/features/gov/OfficersPage';
 import { EarningsPage } from '@/features/earnings/EarningsPage';
 import { NotificationsPage } from '@/features/notifications/NotificationsPage';
 import { OrdersPage } from '@/features/orders/OrdersPage';
@@ -20,6 +21,9 @@ import { VerifyCertificatePage } from '@/features/public/VerifyCertificatePage';
 import { AnalyticsPage } from '@/features/gov/AnalyticsPage';
 import { VendorDashboard } from '@/features/vendor/VendorDashboard';
 import { OnboardingWizard } from '@/features/kyc/OnboardingWizard';
+import { ContractorLayout } from '@/app/ContractorLayout';
+import { ContractsPage } from '@/features/contractor/ContractsPage';
+import { ContractorRegistration } from '@/features/contractor/ContractorRegistration';
 
 export function App() {
   return (
@@ -43,6 +47,13 @@ export function App() {
           </Route>
         </Route>
 
+        <Route element={<RequirePortal portal="contractor" />}>
+          <Route path="/contractor" element={<ContractorLayout />}>
+            <Route index element={<ContractsPage />} />
+            <Route path="registration" element={<ContractorRegistration />} />
+          </Route>
+        </Route>
+
         <Route element={<RequirePortal portal="gov" />}>
           <Route path="/gov" element={<GovLayout />}>
             <Route index element={<GovHomePage />} />
@@ -50,6 +61,7 @@ export function App() {
             <Route path="orders" element={<GovOrdersPage />} />
             <Route path="orders/:id" element={<GovOrderDetailPage />} />
             <Route path="vendors" element={<VendorsPage />} />
+            <Route path="officers" element={<OfficersPage />} />
             <Route path="quality" element={<QualityDashboardPage />} />
             <Route path="ratings" element={<VendorRatingsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />

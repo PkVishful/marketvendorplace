@@ -2,13 +2,11 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useSession, useSignOut } from '@/auth/useSession';
 import { devUserById } from '@/app/devUsers';
-import { DashboardFooter } from '@/components/dashboard/DashboardFooter';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
-import { RoleDashboard } from '@/features/gov/RoleDashboard';
 import { useTheme } from '@/hooks/useTheme';
-import { govNavForSession, primaryOrgScope, primaryRoleLabel } from '@/lib/navConfig';
+import { contractorNavForSession, primaryOrgScope } from '@/lib/navConfig';
 
-export function GovLayout() {
+export function ContractorLayout() {
   const { t, i18n } = useTranslation();
   const { data: session } = useSession();
   const signOut = useSignOut();
@@ -16,7 +14,7 @@ export function GovLayout() {
   const [theme, toggleTheme] = useTheme();
   const dev = devUserById(session?.userId);
 
-  const navItems = govNavForSession(session).map((item) => ({
+  const navItems = contractorNavForSession(session).map((item) => ({
     to: item.to,
     label: t(item.labelKey),
     end: item.end,
@@ -32,34 +30,26 @@ export function GovLayout() {
   }
 
   const orgScope = session?.authenticated
-    ? `Tamil Nadu › ${primaryOrgScope(session)}`
-    : undefined;
-
-  const districtId = session?.roles?.[0]?.orgName
-    ? `#PWD/${session.roles[0].orgName.slice(0, 4).toUpperCase()}`
+    ? `Tamil Nadu › ${session.contractorName ?? primaryOrgScope(session)}`
     : undefined;
 
   return (
     <DashboardShell
-      portal="gov"
-      homePath="/gov"
+      portal="contractor"
+      homePath="/contractor"
       navItems={navItems}
       userName={dev?.label ?? session?.fullName}
-      roleLabel={session?.authenticated ? primaryRoleLabel(session) : undefined}
+      roleLabel={t('contractor.roleLabel')}
       orgScope={orgScope}
-      districtId={districtId}
       theme={theme}
       onToggleTheme={toggleTheme}
       lang={i18n.language}
       onLangChange={handleLangChange}
       onSignOut={handleSignOut}
-      footer={<DashboardFooter />}
     >
-      <Outlet />
+      <div className="mx-auto max-w-portal">
+        <Outlet />
+      </div>
     </DashboardShell>
   );
-}
-
-export function GovHomePage() {
-  return <RoleDashboard />;
 }

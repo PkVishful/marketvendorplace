@@ -20,17 +20,88 @@
   },
   "dashboard": {
     "welcome": "Welcome",
+    "greetingMorning": "Good Morning",
+    "greetingAfternoon": "Good Afternoon",
+    "greetingEvening": "Good Evening",
+    "verified": "Verified",
+    "managingWorks": "Managing Public Works across {{district}} District",
+    "open": "Open",
+    "systemsLive": "All Systems Live",
+    "lastLogin": "Last login: Today, 10:15 AM",
+    "settings": "Settings",
+    "helpSupport": "Help & Support",
     "govSubtitle": "Your workspace — modules and metrics scoped to your role and organisation.",
     "rlsNote": "Data is filtered by your org subtree. RLS is enforced server-side.",
     "kpiTitle": "At a glance",
-    "modulesTitle": "Your modules",
+    "kpiTitleGov": "Key Government Metrics",
+    "operationalIntel": "Operational Intelligence",
+    "procurementTrend": "Procurement Trend",
+    "rfqStatus": "RFQ Status",
+    "budgetGauge": "Budget Utilization",
+    "budgetDesc": "District allocation for FY 2024-25 testing and quality assurance programmes.",
+    "totalBudget": "Total Budget",
+    "peakValue": "Peak Value",
+    "monthlyAvg": "Monthly Avg",
+    "yoyGrowth": "YoY Growth",
+    "priorityActions": "Priority Actions",
+    "notificationsPanel": "Notifications",
+    "aiInsights": "AI Insights",
+    "performanceTitle": "Performance & Activities",
+    "districtPerformance": "District Performance",
+    "districtMap": {
+      "title": "Map",
+      "talukas": "Talukas",
+      "districts": "Districts",
+      "ariaLabel": "{{district}} district performance map",
+      "strong": "Strong",
+      "watch": "Watch",
+      "attention": "Attention",
+      "showingDistricts": "Showing {{shown}} of {{total}} districts"
+    },
+    "deptPerformance": "Department Performance",
+    "budgetSummary": "Budget Summary",
+    "budgetUtilized": "{{pct}}% of total budget utilized",
+    "utilized": "Utilized",
+    "remaining": "Remaining",
+    "recentActivities": "Recent Activities",
+    "upcomingDeadlines": "Upcoming Deadlines",
+    "modulesTitle": "Department Modules",
     "recentOrders": "Recent orders",
     "recentActivity": "Recent alerts",
     "viewAll": "View all",
     "searchPlaceholder": "Search modules and orders…",
+    "searchPlaceholderFull": "Search RFQ, Vendor, Contractor, Project…",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
+    "footer": {
+      "secure": "Secure",
+      "transparent": "Transparent",
+      "trusted": "Trusted",
+      "access": "Access",
+      "portal": "Portal",
+      "build": "Build",
+      "support": "Support",
+      "testingMarketplace": "Testing Marketplace",
+      "version": "Version 1.0.0"
+    },
+    "actions": {
+      "createRfq": "Create RFQ",
+      "registerVendor": "Register Vendor",
+      "uploadReport": "Upload Report",
+      "approveVendor": "Approve Vendor",
+      "generateReport": "Generate Report",
+      "viewAnalytics": "View Analytics"
+    },
     "kpi": {
+      "complianceRate": "Compliance Rate",
+      "pendingApprovals": "Pending Approvals",
+      "rfqClosingToday": "RFQ Closing Today",
+      "vendorRegistrations": "Vendor Registrations",
+      "criticalAlerts": "Critical Alerts",
+      "budgetUtilization": "Budget Utilization",
+      "zeroCritical": "0 critical",
+      "thisWeek": "{{count}} this week",
+      "highPriority": "{{count}} high priority",
       "floated": "Open tenders",
       "awarded": "Awards",
       "pendingKyc": "KYC pending",
@@ -43,6 +114,59 @@
       "unreadAlerts": "Unread alerts",
       "heldPayments": "Held payments",
       "releasedHint": "{{amount}} released"
+    },
+    "modules": {
+      "activeRfq": "{{count}} Active RFQ",
+      "awarded": "Awarded",
+      "pending": "Pending",
+      "pendingKyc": "{{count}} Pending KYC",
+      "approved": "Approved",
+      "qualityAlerts": "{{count}} Quality Alerts",
+      "onTrack": "On track",
+      "yoyGrowth": "+{{pct}}% YoY Growth",
+      "peakValue": "Peak",
+      "auditEvents": "{{count}} Audit Events",
+      "today": "Today",
+      "scheduledTests": "{{count}} Scheduled Tests",
+      "certificates": "Certificates"
+    },
+    "priority": {
+      "expiringRfq": "Expiring RFQs",
+      "openEscalations": "Open escalations",
+      "kycReview": "KYC documents awaiting review",
+      "certRenewal": "Certificate renewals due"
+    },
+    "notif": {
+      "kycAwaiting": "KYC documents awaiting review",
+      "rfqClosing": "RFQ closing today — Coimbatore Flyover",
+      "vendorApproved": "Vendor registration approved — TN Labs Pvt Ltd",
+      "qualityAlert": "Quality alert flagged on Milestone M-042",
+      "minAgo": "{{n}} min ago",
+      "hrAgo": "{{n}} hr ago"
+    },
+    "insights": {
+      "vendorApprovals": "Vendor approvals increased by 24% this month",
+      "complianceTrend": "Compliance rate trending upward across 16 districts",
+      "budgetForecast": "Budget utilization on track — projected 78% by Q2"
+    },
+    "dept": {
+      "roads": "Roads & Bridges",
+      "buildings": "Buildings",
+      "water": "Water Resources",
+      "quality": "Quality Assurance"
+    },
+    "activity": {
+      "rfqFloated": "RFQ floated for Coimbatore Flyover",
+      "vendorApproved": "Vendor KYC approved — TN Labs Pvt Ltd",
+      "reportUploaded": "Quality report uploaded for Milestone M-038",
+      "kycCompleted": "KYC review batch completed — 5 vendors",
+      "awardIssued": "L1 award issued — Bridge Deck Testing"
+    },
+    "deadline": {
+      "kycBatch": "KYC review batch",
+      "rfqReview": "RFQ evaluation review",
+      "qualityAudit": "Quality assurance audit",
+      "budgetReport": "Quarterly budget report"
     },
     "qualityDesc": "Milestone health from results, escalations, and certificate status.",
     "analyticsDesc": "Procurement KPIs — orders, bids, treasury payments.",
@@ -79,7 +203,8 @@
     "language": "Language",
     "vendorPortal": "Lab / Vendor portal",
     "govPortal": "Government portal",
-    "secureNote": "Secured by row-level security · MeitY-ready architecture"
+    "secureNote": "Secured by row-level security · MeitY-ready architecture",
+    "contractorPortal": "Contractor portal"
   },
   "nav": {
     "vendor": "Vendor navigation",
@@ -89,7 +214,9 @@
     "orders": "Open tenders",
     "jobs": "Field jobs",
     "notifications": "Notifications",
-    "earnings": "Earnings"
+    "earnings": "Earnings",
+    "contractorBadge": "Contractor",
+    "contractor": "Contractor navigation"
   },
   "vendor": {
     "navHome": "Dashboard",
@@ -286,6 +413,32 @@
     "system": "System",
     "loadMore": "Load older entries"
   },
+  "officers": {
+    "nav": "Officers",
+    "title": "Officer directory",
+    "subtitle": "Government officers in your org scope — role, office, and login mobile.",
+    "noAccessTitle": "Officer directory access required",
+    "noAccessBody": "You need user.read permission (district officer, EE, auditor, or head admin).",
+    "search": "Search officers",
+    "searchPlaceholder": "Search name, phone, office, role…",
+    "filterAll": "All roles",
+    "count": "Showing {{shown}} of {{total}}",
+    "emptyTitle": "No officers in scope",
+    "emptyBody": "Officers appear here when they hold a role under your organisation tree.",
+    "colName": "Name",
+    "colPhone": "Mobile",
+    "colRole": "Role",
+    "colOrg": "Office",
+    "colLevel": "Level",
+    "colGranted": "Granted",
+    "role": {
+      "HEAD_ADMIN": "Head Admin",
+      "DISTRICT_OFFICER": "District Officer",
+      "EXECUTIVE_ENGINEER": "Executive Engineer",
+      "SITE_ENGINEER": "Section Engineer",
+      "AUDITOR": "Auditor"
+    }
+  },
   "signIn": {
     "heroTitle": "Construction testing, made transparent",
     "heroDesc": "E-Works connects accredited testing labs with government projects across Tamil Nadu — from tender to field sample to certificate.",
@@ -297,7 +450,18 @@
     "forPublicDesc": "Anyone can check whether a test certificate is genuine — no login required.",
     "footer": "Government of Tamil Nadu · Public Works Department",
     "rightFooter": "Use the mobile number linked to your lab or department account.",
-    "devHelp": "Pick a demo persona to explore the vendor or government portal."
+    "devHelp": "Pick a demo persona to explore the vendor or government portal.",
+    "govHierarchyHelp": "Each login is scoped to an org level — State sees all districts; District officers see their district; Section engineers see their section subtree.",
+    "orgLevel": {
+      "state": "State level",
+      "district": "District level",
+      "division": "Division level",
+      "circle": "Circle level",
+      "subdivision": "Subdivision level",
+      "section": "Section level",
+      "field_unit": "Field unit level",
+      "project": "Project level"
+    }
   },
   "auth": {
     "tabPhone": "Phone sign-in",
@@ -570,7 +734,10 @@
       "ADDRESS_PROOF": "Address proof",
       "ID_PROOF": "Authorized signatory ID",
       "BANK_PROOF": "Bank account proof"
-    }
+    },
+    "fillRequired": "Please fill in all required fields (name, address, GSTIN, PAN) before continuing.",
+    "uploadingDoc": "Uploading…",
+    "replace": "Replace"
   },
   "feed": {
     "title": "Notifications",
@@ -584,16 +751,38 @@
     "emptyBody": "When a tender is floated to your lab or a bid of yours is decided, it appears here.",
     "errorTitle": "Couldn't load this section",
     "errorBody": "Something went wrong reaching the server. Check your connection and try again.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "saving": "Saving…"
   },
   "event": {
-    "VENDOR_APPROVED": { "title": "Your lab is approved", "desc": "Your accreditation was verified. You can now receive tenders and place bids." },
-    "VENDOR_REJECTED": { "title": "Approval was declined", "desc": "Your lab was not approved. Contact your district office for the reason." },
-    "ORDER_FLOATED": { "title": "New tender you can bid on", "desc": "A test order was floated within your service area." },
-    "REVEAL_WINDOW_OPEN": { "title": "Reveal your sealed bid", "desc": "Bidding has closed. Reveal your price now, or your bid is forfeited and the EMD is lost." },
-    "AWARD_WON": { "title": "You won the award", "desc": "Your bid was selected. A payment is held at your quoted price." },
-    "AWARD_LOST": { "title": "Not selected this time", "desc": "Another lab was awarded this tender." },
-    "ORDER_FAILED": { "title": "Tender closed with no award", "desc": "The tender closed without a qualified bid." }
+    "VENDOR_APPROVED": {
+      "title": "Your lab is approved",
+      "desc": "Your accreditation was verified. You can now receive tenders and place bids."
+    },
+    "VENDOR_REJECTED": {
+      "title": "Approval was declined",
+      "desc": "Your lab was not approved. Contact your district office for the reason."
+    },
+    "ORDER_FLOATED": {
+      "title": "New tender you can bid on",
+      "desc": "A test order was floated within your service area."
+    },
+    "REVEAL_WINDOW_OPEN": {
+      "title": "Reveal your sealed bid",
+      "desc": "Bidding has closed. Reveal your price now, or your bid is forfeited and the EMD is lost."
+    },
+    "AWARD_WON": {
+      "title": "You won the award",
+      "desc": "Your bid was selected. A payment is held at your quoted price."
+    },
+    "AWARD_LOST": {
+      "title": "Not selected this time",
+      "desc": "Another lab was awarded this tender."
+    },
+    "ORDER_FAILED": {
+      "title": "Tender closed with no award",
+      "desc": "The tender closed without a qualified bid."
+    }
   },
   "pill": {
     "VENDOR_APPROVED": "Approved",
@@ -611,5 +800,72 @@
     "markRead": "Mark as read",
     "order": "Order",
     "unread": "Unread"
+  },
+  "contractor": {
+    "roleLabel": "Contractor",
+    "navContracts": "My contracts",
+    "navRegistration": "Registration",
+    "contractsTitle": "My contracts",
+    "contractsSubtitle": "Open tenders you can bid on, and contracts awarded to you.",
+    "project": "Project",
+    "statusOpen": "Open for bids",
+    "statusAwarded": "Awarded",
+    "estValue": "Estimated value",
+    "awardedToYou": "Awarded to your firm.",
+    "noContracts": "No open tenders or awarded contracts right now.",
+    "bidAmount": "Your bid (₹)",
+    "submitBid": "Submit bid",
+    "reviseBid": "Revise bid",
+    "bidPlaced": "Your current bid: {{amount}}",
+    "bidInvalid": "Enter a valid bid amount.",
+    "status": {
+      "DRAFT": "Draft",
+      "SUBMITTED": "Submitted — awaiting approval",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "SUSPENDED": "Suspended"
+    },
+    "doc": {
+      "PAN": "PAN card",
+      "GST_CERTIFICATE": "GST certificate",
+      "LICENCE": "Contractor licence",
+      "ADDRESS_PROOF": "Address proof",
+      "ID_PROOF": "ID proof",
+      "BANK_PROOF": "Bank proof"
+    },
+    "reg": {
+      "title": "Contractor registration",
+      "subtitle": "Register once. A district officer reviews and approves.",
+      "statusIntro": "Your registration has been submitted.",
+      "statusLabel": "Status",
+      "locked": "Your details are locked while under review. You'll be notified once a decision is made.",
+      "step": {
+        "profile": "Company",
+        "documents": "Documents",
+        "review": "Review"
+      },
+      "legalName": "Legal / firm name",
+      "gstin": "GSTIN",
+      "pan": "PAN",
+      "address": "Address",
+      "licenceClass": "Contractor class",
+      "licenceNo": "Licence number",
+      "docsHelp": "Upload a clear photo of each document. Starred documents are required.",
+      "upload": "Upload",
+      "replace": "Replace",
+      "uploaded": "Uploaded",
+      "reviewTitle": "Review & submit",
+      "missingDocs": "Still required",
+      "fillAll": "Please fill in all fields.",
+      "back": "Back",
+      "next": "Next",
+      "submit": "Submit for approval",
+      "uploadingDoc": "Uploading…",
+      "notUploaded": "Not uploaded yet",
+      "requiredUploaded": "required documents uploaded"
+    },
+    "notApprovedTitle": "Complete your registration to bid",
+    "notApprovedBody": "Open tenders appear here once your contractor registration is approved by the district officer.",
+    "goToRegistration": "Go to registration"
   }
 }

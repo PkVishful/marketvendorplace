@@ -1,0 +1,50 @@
+-- Dev-only committed fixtures: org tree, gov + vendor user profiles, gov roles.
+-- Extracted from supabase/tests/01_fixtures.sql and 03_vendors.sql (user rows).
+-- Idempotent — safe to re-run.
+
+-- Org tree
+insert into eworks.org_units (id, parent_id, level, code, name) values
+  ('11111111-0000-0000-0000-000000000001', null, 'STATE', 'TN', 'Tamil Nadu'),
+  ('11111111-0000-0000-0000-000000000002', '11111111-0000-0000-0000-000000000001', 'DISTRICT', 'COIMBATORE', 'Coimbatore'),
+  ('11111111-0000-0000-0000-000000000003', '11111111-0000-0000-0000-000000000002', 'DIVISION',   'CBEDIV1',  'Coimbatore Division 1'),
+  ('11111111-0000-0000-0000-000000000004', '11111111-0000-0000-0000-000000000003', 'CIRCLE',     'CBEC1',    'Coimbatore Circle 1'),
+  ('11111111-0000-0000-0000-000000000005', '11111111-0000-0000-0000-000000000004', 'SUBDIVISION','CBESD1',   'Coimbatore Subdivision 1'),
+  ('11111111-0000-0000-0000-000000000006', '11111111-0000-0000-0000-000000000005', 'SECTION',    'CBESEC1',  'Coimbatore Section 1'),
+  ('11111111-0000-0000-0000-000000000007', '11111111-0000-0000-0000-000000000006', 'FIELD_UNIT', 'CBEFU1',   'Coimbatore Field Unit 1'),
+  ('11111111-0000-0000-0000-000000000008', '11111111-0000-0000-0000-000000000007', 'PROJECT',    'CBEPRJ1',  'Coimbatore Flyover'),
+  ('11111111-0000-0000-0000-00000000000f', '11111111-0000-0000-0000-000000000005', 'SECTION',    'CBESEC2',  'Coimbatore Section 2'),
+  ('11111111-0000-0000-0000-000000000009', '11111111-0000-0000-0000-000000000001', 'DISTRICT', 'SALEM', 'Salem'),
+  ('11111111-0000-0000-0000-00000000000a', '11111111-0000-0000-0000-000000000009', 'DIVISION',   'SLMDIV1',  'Salem Division 1'),
+  ('11111111-0000-0000-0000-00000000000b', '11111111-0000-0000-0000-00000000000a', 'CIRCLE',     'SLMC1',    'Salem Circle 1'),
+  ('11111111-0000-0000-0000-00000000000c', '11111111-0000-0000-0000-00000000000b', 'SUBDIVISION','SLMSD1',   'Salem Subdivision 1'),
+  ('11111111-0000-0000-0000-00000000000d', '11111111-0000-0000-0000-00000000000c', 'SECTION',    'SLMSEC1',  'Salem Section 1'),
+  ('11111111-0000-0000-0000-00000000000e', '11111111-0000-0000-0000-00000000000d', 'FIELD_UNIT', 'SLMFU1',   'Salem Field Unit 1'),
+  ('11111111-0000-0000-0000-000000000010', '11111111-0000-0000-0000-00000000000e', 'PROJECT',    'SLMPRJ1',  'Salem Bypass')
+on conflict (id) do nothing;
+
+-- Government users (phone OTP: 9000000001–9000000005)
+insert into eworks.user_profiles (id, phone, full_name) values
+  ('22222222-0000-0000-0000-00000000000a', '9000000001', 'Head Admin'),
+  ('22222222-0000-0000-0000-00000000000b', '9000000002', 'Coimbatore District Officer'),
+  ('22222222-0000-0000-0000-00000000000c', '9000000003', 'Salem District Officer'),
+  ('22222222-0000-0000-0000-00000000000d', '9000000004', 'Coimbatore Section Engineer'),
+  ('22222222-0000-0000-0000-00000000000e', '9000000005', 'Coimbatore Auditor')
+on conflict (id) do nothing;
+
+insert into eworks.user_roles (user_id, role_code, org_unit_id) values
+  ('22222222-0000-0000-0000-00000000000a', 'HEAD_ADMIN',       '11111111-0000-0000-0000-000000000001'),
+  ('22222222-0000-0000-0000-00000000000b', 'DISTRICT_OFFICER', '11111111-0000-0000-0000-000000000002'),
+  ('22222222-0000-0000-0000-00000000000c', 'DISTRICT_OFFICER', '11111111-0000-0000-0000-000000000009'),
+  ('22222222-0000-0000-0000-00000000000d', 'SITE_ENGINEER',    '11111111-0000-0000-0000-000000000006'),
+  ('22222222-0000-0000-0000-00000000000e', 'AUDITOR',          '11111111-0000-0000-0000-000000000002')
+on conflict on constraint user_roles_unique do nothing;
+
+-- Vendor / field users (dev persona picker + vendor phone login)
+insert into eworks.user_profiles (id, phone, full_name) values
+  ('44444444-0000-0000-0000-00000000000a', '9100000001', 'Vendor A Owner (Coimbatore)'),
+  ('44444444-0000-0000-0000-00000000000c', '9100000003', 'Vendor C Owner (Salem, wide radius)'),
+  ('44444444-0000-0000-0000-00000000000d', '9100000004', 'Vendor D Owner (expired NABL)'),
+  ('44444444-0000-0000-0000-00000000000e', '9100000005', 'Vendor E Owner (not approved)'),
+  ('44444444-0000-0000-0000-00000000000f', '9100000009', 'Vendor A Technician'),
+  ('44444444-0000-0000-0000-000000000010', '9100000010', 'New Lab Applicant')
+on conflict (id) do nothing;

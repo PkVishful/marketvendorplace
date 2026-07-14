@@ -21,14 +21,15 @@ function portalForSession(session: Pick<Session, 'userId' | 'portal'>) {
   return resolvePortal(session as Session) ?? devUserById(session.userId)?.portal;
 }
 
-function portalFromPath(path: string): 'vendor' | 'gov' | null {
+function portalFromPath(path: string): 'vendor' | 'gov' | 'contractor' | null {
   if (path.startsWith('/vendor')) return 'vendor';
   if (path.startsWith('/gov')) return 'gov';
+  if (path.startsWith('/contractor')) return 'contractor';
   return null;
 }
 
 function isDashboardPath(path: string) {
-  return path.startsWith('/gov') || path.startsWith('/vendor');
+  return path.startsWith('/gov') || path.startsWith('/vendor') || path.startsWith('/contractor');
 }
 
 function isPublicPath(path: string) {
@@ -97,7 +98,7 @@ export function AppShell() {
   return (
     <div
       className={`flex flex-col ${isSignIn ? '' : 'bg-ground'} ${
-        useDashboardChrome ? 'h-screen overflow-hidden' : 'min-h-full'
+        useDashboardChrome || isSignIn ? 'h-screen overflow-hidden' : 'min-h-full'
       }`}
     >
       {showLegacyChrome && (
@@ -124,7 +125,13 @@ export function AppShell() {
         </>
       )}
 
-      <main className={useDashboardChrome ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1'}>
+      <main
+        className={
+          useDashboardChrome || isSignIn
+            ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
+            : 'flex-1'
+        }
+      >
         {isSignIn ? (
           isPending ? (
             <div className="px-4 py-24 text-center text-sm text-ink-3">{t('states.loading')}</div>

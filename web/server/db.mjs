@@ -14,17 +14,35 @@
 // user id never leak to the next borrower of a pooled connection.
 
 import pg from 'pg';
+import { loadEnv } from './load-env.mjs';
+
+loadEnv();
 
 const { Pool } = pg;
 
-export const pool = new Pool({
-  host: process.env.PGHOST || '127.0.0.1',
-  port: Number(process.env.PGPORT || 5433),
-  user: process.env.PGUSER || 'postgres',
-  password: process.env.PGPASSWORD || 'postgres',
-  database: process.env.PGDATABASE || 'eworks',
-  max: 8,
-});
+function createPool() {
+  const useLocal = process.env.EWORKS_USE_LOCAL_PG === '1';
+  const remoteUrl = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+
+  if (remoteUrl && !useLocal) {
+    return new Pool({
+      connectionString: remoteUrl,
+      ssl: { rejectUnauthorized: false },
+      max: 8,
+    });
+  }
+
+  return new Pool({
+    host: process.env.PGHOST || '127.0.0.1',
+    port: Number(process.env.PGPORT || 5433),
+    user: process.env.PGUSER || 'postgres',
+    password: process.env.PGPASSWORD || 'postgres',
+    database: process.env.PGDATABASE || 'eworks',
+    max: 8,
+  });
+}
+
+export const pool = createPool();
 
 // Run `fn(client)` as the RLS-guarded app identity. The role and app.user_id
 // are set with `set local`, so they are scoped to this transaction only.
@@ -98,12 +116,28 @@ export async function lookupProfile(userId) {
     [userId],
   );
 
+  // Contracts module may not be migrated yet on every environment.
+  // Login must not fail when eworks.contractors is missing.
+  let contractors = [];
+  try {
+    const q = await pool.query(
+      `select id, legal_name as "legalName", status as "contractorStatus"
+         from eworks.contractors where owner_user_id = $1 limit 1`,
+      [userId],
+    );
+    contractors = q.rows;
+  } catch (err) {
+    if (err?.code !== '42P01') throw err; // undefined_table only
+  }
+
   const roleCodes = roles.map((r) => r.code);
   const portal = roleCodes.includes('LAB_VENDOR') || roleCodes.includes('FIELD_TECHNICIAN')
     ? 'vendor'
-    : roleCodes.some((c) => GOV_ROLES.has(c))
-      ? 'gov'
-      : 'unknown';
+    : roleCodes.includes('CONTRACTOR')
+      ? 'contractor'
+      : roleCodes.some((c) => GOV_ROLES.has(c))
+        ? 'gov'
+        : 'unknown';
 
   return {
     ...profile,
@@ -113,5 +147,8 @@ export async function lookupProfile(userId) {
     vendorId: vendors[0]?.id ?? null,
     vendorName: vendors[0]?.legalName ?? null,
     vendorStatus: vendors[0]?.vendorStatus ?? null,
+    contractorId: contractors[0]?.id ?? null,
+    contractorName: contractors[0]?.legalName ?? null,
+    contractorStatus: contractors[0]?.contractorStatus ?? null,
   };
 }
