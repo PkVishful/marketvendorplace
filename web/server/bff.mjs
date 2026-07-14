@@ -188,12 +188,6 @@ function computeVendorTier(row) {
   return 'neutral';
 }
 
-function requireUser(req, res) {
-  const userId = readSessionCookie(req);
-  if (!userId) { res.status(401).json({ error: 'not_authenticated' }); return null; }
-  return userId;
-}
-
 // Shape returned to the browser — always `userId`, never raw `id`.
 function sessionDto(profile) {
   const { id, ...rest } = profile;
@@ -201,6 +195,11 @@ function sessionDto(profile) {
 }
 
 export function createApp(config = loadConfig(), { provider = selectProvider(config) } = {}) {
+  function requireUser(req, res) {
+    const userId = readSessionCookie(req, config);
+    if (!userId) { res.status(401).json({ error: 'not_authenticated' }); return null; }
+    return userId;
+  }
   const app = express();
   if (config.isProd) app.set('trust proxy', 1);
   app.use(corsMiddleware(config));
@@ -302,7 +301,7 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
   });
 
   app.get('/api/me', async (req, res) => {
-    const userId = readSessionCookie(req);
+    const userId = readSessionCookie(req, config);
     if (!userId) return res.status(401).json({ authenticated: false });
     const profile = await lookupProfile(userId);
     if (!profile) { clearSessionCookie(res, config); return res.status(401).json({ authenticated: false }); }

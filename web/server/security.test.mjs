@@ -21,19 +21,62 @@ function fakeRes() {
     _body: undefined, json(b) { this._body = b; return this; } };
 }
 
-describe('cookies', () => {
+describe('signed cookies', () => {
   it('always HttpOnly + SameSite=Lax; Secure only in prod', () => {
     expect(cookieAttributes(dev)).toContain('HttpOnly');
     expect(cookieAttributes(dev)).toContain('SameSite=Lax');
     expect(cookieAttributes(dev)).not.toContain('Secure');
     expect(cookieAttributes(prod)).toContain('Secure');
   });
-  it('round-trips uid via set/read', () => {
+
+  function cookieHeaderToReq(res) {
+    const setCookie = res.headers['Set-Cookie'];
+    return { headers: { cookie: setCookie.split(';')[0] } };
+  }
+
+  it('sign -> read round-trips the uid', () => {
     const res = fakeRes();
     setSessionCookie(res, 'user-42', prod);
-    const cookie = res.headers['Set-Cookie'];
-    const req = { headers: { cookie: cookie.split(';')[0] } };
-    expect(readSessionCookie(req)).toBe('user-42');
+    expect(readSessionCookie(cookieHeaderToReq(res), prod)).toBe('user-42');
+  });
+
+  it('rejects a tampered uid', () => {
+    const res = fakeRes();
+    setSessionCookie(res, 'user-42', prod);
+    const req = cookieHeaderToReq(res);
+    req.headers.cookie = req.headers.cookie.replace('user-42', 'user-99');
+    expect(readSessionCookie(req, prod)).toBeNull();
+  });
+
+  it('rejects a tampered signature', () => {
+    const res = fakeRes();
+    setSessionCookie(res, 'user-42', prod);
+    const req = cookieHeaderToReq(res);
+    // flip the last char of the cookie value (part of the signature)
+    const last = req.headers.cookie.slice(-1) === 'A' ? 'B' : 'A';
+    req.headers.cookie = req.headers.cookie.slice(0, -1) + last;
+    expect(readSessionCookie(req, prod)).toBeNull();
+  });
+
+  it('rejects a cookie signed with a different secret', () => {
+    const other = loadConfig({
+      EWORKS_ENV: 'production', OTP_PEPPER: 'p'.repeat(32),
+      CORS_ORIGIN: 'https://getlegal.anvastech.in', EWORKS_USE_LOCAL_PG: '1',
+      SESSION_SECRET: 'DIFFERENT'.repeat(4),
+    });
+    const res = fakeRes();
+    setSessionCookie(res, 'user-42', other);
+    expect(readSessionCookie(cookieHeaderToReq(res), prod)).toBeNull();
+  });
+
+  it('rejects an expired cookie', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const res = fakeRes();
+    setSessionCookie(res, 'user-42', prod);         // expires at +24h
+    vi.setSystemTime(24 * 60 * 60 * 1000 + 1000);   // just past expiry
+    expect(readSessionCookie(cookieHeaderToReq(res), prod)).toBeNull();
+    vi.useRealTimers();
   });
 });
 

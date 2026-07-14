@@ -3,29 +3,48 @@
 // All environment differences are driven by the config object.
 
 import cors from 'cors';
+import crypto from 'node:crypto';
 import { normalizePhone } from './auth.mjs';
 
 const COOKIE = 'eworks_dev_uid';
+const SESSION_MAX_AGE_S = 86400; // 24h
+
+function signSession(uid, expiresTs, secret) {
+  return crypto.createHmac('sha256', secret).update(`${uid}.${expiresTs}`).digest('base64url');
+}
 
 export function cookieAttributes(config, { clear = false } = {}) {
   const parts = ['HttpOnly', 'Path=/', 'SameSite=Lax'];
   if (config.cookieSecure) parts.push('Secure');
-  parts.push(`Max-Age=${clear ? 0 : 86400}`);
+  parts.push(`Max-Age=${clear ? 0 : SESSION_MAX_AGE_S}`);
   return parts.join('; ');
 }
 
 export function setSessionCookie(res, uid, config) {
-  res.setHeader('Set-Cookie', `${COOKIE}=${encodeURIComponent(uid)}; ${cookieAttributes(config)}`);
+  const expiresTs = Date.now() + SESSION_MAX_AGE_S * 1000;
+  const value = `${uid}.${expiresTs}.${signSession(uid, expiresTs, config.sessionSecret)}`;
+  res.setHeader('Set-Cookie', `${COOKIE}=${encodeURIComponent(value)}; ${cookieAttributes(config)}`);
 }
 
 export function clearSessionCookie(res, config) {
   res.setHeader('Set-Cookie', `${COOKIE}=; ${cookieAttributes(config, { clear: true })}`);
 }
 
-export function readSessionCookie(req) {
+export function readSessionCookie(req, config) {
   const raw = req.headers.cookie || '';
   const hit = raw.split(';').map((s) => s.trim()).find((s) => s.startsWith(COOKIE + '='));
-  return hit ? decodeURIComponent(hit.slice(COOKIE.length + 1)) : null;
+  if (!hit) return null;
+  const value = decodeURIComponent(hit.slice(COOKIE.length + 1));
+  const parts = value.split('.');
+  if (parts.length !== 3) return null;
+  const [uid, expiresStr, sig] = parts;
+  const expiresTs = Number(expiresStr);
+  if (!Number.isFinite(expiresTs) || Date.now() > expiresTs) return null;
+  const expected = signSession(uid, expiresTs, config.sessionSecret);
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  return uid;
 }
 
 export function corsMiddleware(config) {
