@@ -39,10 +39,19 @@ export function corsMiddleware(config) {
 
 export function createRateLimiter({ windowMs, max, keyFn }) {
   const hits = new Map(); // key -> { count, resetAt }
-  return function rateLimiter(req, res, next) {
+  let lastSweep = Date.now();
+  function rateLimiter(req, res, next) {
+    const now = Date.now();
+    // Lazily evict expired entries at most once per window, so long-running
+    // processes don't accumulate one Map entry per distinct key forever.
+    if (now - lastSweep > windowMs) {
+      for (const [key, entry] of hits) {
+        if (entry.resetAt < now) hits.delete(key);
+      }
+      lastSweep = now;
+    }
     const k = keyFn(req);
     if (k == null) return next();
-    const now = Date.now();
     let entry = hits.get(k);
     if (!entry || now > entry.resetAt) { entry = { count: 0, resetAt: now + windowMs }; hits.set(k, entry); }
     entry.count += 1;
@@ -51,7 +60,11 @@ export function createRateLimiter({ windowMs, max, keyFn }) {
       return res.status(429).json({ error: 'rate_limited' });
     }
     return next();
-  };
+  }
+  // Test-only introspection: number of keys currently resident in the
+  // internal hit-tracking map. Not part of the public middleware contract.
+  rateLimiter._size = () => hits.size;
+  return rateLimiter;
 }
 
 // Key helpers for the OTP endpoints.

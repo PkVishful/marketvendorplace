@@ -3,8 +3,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { loadConfig } from './env.mjs';
 import {
-  cookieAttributes, setSessionCookie, readSessionCookie,
-  createRateLimiter, redactErrorDetailMiddleware,
+  cookieAttributes, setSessionCookie, readSessionCookie, clearSessionCookie,
+  corsMiddleware, createRateLimiter, redactErrorDetailMiddleware,
+  ipKey, phoneKey,
 } from './security.mjs';
 
 const dev = loadConfig({});
@@ -57,6 +58,27 @@ describe('rate limiter', () => {
     expect(run()).toBe(true);
     vi.useRealTimers();
   });
+  it('evicts stale entries from the internal map instead of growing forever', () => {
+    vi.useFakeTimers();
+    const rl = createRateLimiter({ windowMs: 1000, max: 5, keyFn: (req) => req.key });
+    const hit = (key) => {
+      const res = fakeRes();
+      let nexted = false;
+      rl({ key }, res, () => { nexted = true; });
+      return nexted;
+    };
+    expect(hit('A')).toBe(true);
+    expect(rl._size()).toBe(1);
+    // Move past A's window so its entry is stale, then trigger a sweep by
+    // hitting a different key (also past lastSweep + windowMs).
+    vi.advanceTimersByTime(1001);
+    expect(hit('B')).toBe(true);
+    // A must have been evicted by the sweep — only B remains resident.
+    expect(rl._size()).toBe(1);
+    // Behaviorally: A is treated as a brand-new window, not a resurrected one.
+    expect(hit('A')).toBe(true);
+    vi.useRealTimers();
+  });
 });
 
 describe('error detail redaction', () => {
@@ -72,5 +94,72 @@ describe('error detail redaction', () => {
     redactErrorDetailMiddleware(dev)({}, rd, () => {});
     rd.json({ error: 'x', detail: 'secret' });
     expect(rd._body).toEqual({ error: 'x', detail: 'secret' });
+  });
+});
+
+describe('clearSessionCookie', () => {
+  it('sets Max-Age=0, HttpOnly always, Secure only in prod', () => {
+    const resDev = fakeRes();
+    clearSessionCookie(resDev, dev);
+    const devCookie = resDev.headers['Set-Cookie'];
+    expect(devCookie).toContain('Max-Age=0');
+    expect(devCookie).toContain('HttpOnly');
+    expect(devCookie).not.toContain('Secure');
+
+    const resProd = fakeRes();
+    clearSessionCookie(resProd, prod);
+    const prodCookie = resProd.headers['Set-Cookie'];
+    expect(prodCookie).toContain('Max-Age=0');
+    expect(prodCookie).toContain('HttpOnly');
+    expect(prodCookie).toContain('Secure');
+  });
+});
+
+describe('ipKey / phoneKey', () => {
+  it('ipKey returns ip:<req.ip>', () => {
+    expect(ipKey({ ip: '203.0.113.7' })).toBe('ip:203.0.113.7');
+  });
+  it('phoneKey returns phone:<normalized> for a valid phone', () => {
+    expect(phoneKey({ body: { phone: '9876543210' } })).toBe('phone:9876543210');
+    expect(phoneKey({ body: { phone: '+91 98765 43210' } })).toBe('phone:9876543210');
+  });
+  it('phoneKey returns null for a missing or invalid phone', () => {
+    expect(phoneKey({ body: {} })).toBe(null);
+    expect(phoneKey({ body: { phone: '123' } })).toBe(null);
+    expect(phoneKey({})).toBe(null);
+  });
+});
+
+describe('corsMiddleware', () => {
+  function fakeCorsRes() {
+    const headers = {};
+    return {
+      headers,
+      statusCode: 200,
+      getHeader(k) { return headers[k]; },
+      setHeader(k, v) { headers[k] = v; },
+      end() {},
+    };
+  }
+  function run(config, requestOrigin) {
+    const mw = corsMiddleware(config);
+    const req = { method: 'GET', headers: { origin: requestOrigin } };
+    const res = fakeCorsRes();
+    let nexted = false;
+    mw(req, res, () => { nexted = true; });
+    return { res, nexted };
+  }
+
+  it('prod: locks Access-Control-Allow-Origin to config.corsOrigin regardless of request origin', () => {
+    const { res, nexted } = run(prod, 'https://evil.example.com');
+    expect(nexted).toBe(true);
+    expect(res.headers['Access-Control-Allow-Origin']).toBe(prod.corsOrigin);
+    expect(res.headers['Access-Control-Allow-Origin']).not.toBe('https://evil.example.com');
+  });
+
+  it('dev: reflects the request origin (origin: true)', () => {
+    const { res, nexted } = run(dev, 'http://localhost:5173');
+    expect(nexted).toBe(true);
+    expect(res.headers['Access-Control-Allow-Origin']).toBe('http://localhost:5173');
   });
 });
