@@ -16,7 +16,7 @@ import { loadConfig } from './env.mjs';
 import { selectProvider } from './otp/provider.mjs';
 import {
   corsMiddleware, setSessionCookie, clearSessionCookie, readSessionCookie,
-  createRateLimiter, ipKey, phoneKey, redactErrorDetailMiddleware,
+  createRateLimiter, ipKey, phoneKey, redactErrorDetailMiddleware, errorHandler,
 } from './security.mjs';
 
 const KYC_DOC_TYPES = [
@@ -2322,6 +2322,11 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
       res.status(400).json({ error: 'bid_failed', detail: err.message });
     }
   });
+
+  // Terminal error handler — must be registered after all routes/middleware
+  // (Express only recognizes 4-arg handlers here). Catches anything forwarded
+  // by Express, including rejected async handlers, so stack traces never leak.
+  app.use(errorHandler(config));
 
   return app;
 }

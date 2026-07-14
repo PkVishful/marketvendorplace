@@ -9,7 +9,7 @@ module.exports = {
     cwd: '/home/deploy/marketvendorplace/web',
     exec_mode: 'fork',
     instances: 1,
-    env: { EWORKS_ENV: 'production' },
+    env: { EWORKS_ENV: 'production', NODE_ENV: 'production' },
     max_restarts: 10,
     restart_delay: 2000,
   }],

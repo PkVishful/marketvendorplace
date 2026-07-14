@@ -5,7 +5,7 @@ import { loadConfig } from './env.mjs';
 import {
   cookieAttributes, setSessionCookie, readSessionCookie, clearSessionCookie,
   corsMiddleware, createRateLimiter, redactErrorDetailMiddleware,
-  ipKey, phoneKey,
+  ipKey, phoneKey, errorHandler,
 } from './security.mjs';
 
 const dev = loadConfig({});
@@ -127,6 +127,21 @@ describe('ipKey / phoneKey', () => {
     expect(phoneKey({ body: {} })).toBe(null);
     expect(phoneKey({ body: { phone: '123' } })).toBe(null);
     expect(phoneKey({})).toBe(null);
+  });
+});
+
+describe('errorHandler', () => {
+  it('prod: responds 500 with only { error: internal_error }, no detail', () => {
+    const res = fakeRes();
+    errorHandler(prod)(new Error('boom'), {}, res, () => {});
+    expect(res.statusCode).toBe(500);
+    expect(res._body).toEqual({ error: 'internal_error' });
+  });
+  it('dev: responds 500 with detail included', () => {
+    const res = fakeRes();
+    errorHandler(dev)(new Error('boom'), {}, res, () => {});
+    expect(res.statusCode).toBe(500);
+    expect(res._body).toEqual({ error: 'internal_error', detail: 'boom' });
   });
 });
 

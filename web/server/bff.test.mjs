@@ -44,6 +44,18 @@ describe('bff app wiring', () => {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
     });
     expect(r.status).toBe(404);
+
+    // The dev-only "advance" routes are gated in a separate `if (!config.isProd)`
+    // block from /api/dev/login — assert they're also absent in production.
+    const rOrder = await fetch(`http://127.0.0.1:${port}/api/dev/orders/x/advance`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+    });
+    expect(rOrder.status).toBe(404);
+
+    const rJob = await fetch(`http://127.0.0.1:${port}/api/dev/jobs/x/advance`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+    });
+    expect(rJob.status).toBe(404);
   });
 
   it('CORS allows the configured origin in production', async () => {
