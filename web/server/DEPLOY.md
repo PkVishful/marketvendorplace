@@ -15,7 +15,23 @@ This ensures the BFF restarts automatically if it crashes or the server reboots.
 
 ## Environment Configuration
 
-All runtime secrets (OTP_PEPPER, PGPASSWORD, etc.) come from the server environment — **never** from `ecosystem.config.cjs` or checked into git. Use a root-owned `.env` file or systemd `EnvironmentFile=` (see below).
+All runtime secrets (SESSION_SECRET, MSG91_AUTH_KEY, PGPASSWORD, etc.) come from the server environment — **never** from `ecosystem.config.cjs` or checked into git. Use a root-owned `.env` file or systemd `EnvironmentFile=` (see below).
+
+## Real-user prerequisites
+
+Before accepting real users, set the following:
+
+1. **SESSION_SECRET** (32+ random bytes) — Generate on the server, keep out of git. Example:
+   ```bash
+   openssl rand -base64 32
+   ```
+
+2. **OTP_PROVIDER=msg91** with credentials:
+   - **MSG91_AUTH_KEY** — Your MSG91 authentication key
+   - **MSG91_TEMPLATE_ID** — A TRAI-approved DLT template containing a variable (`var1`) for the OTP code
+   - **MSG91_SENDER_ID** — Optional sender ID (usually embedded in the DLT template)
+
+   The console sink (`OTP_PROVIDER=console`) logs verification codes to stdout and is **staging-only**. Production must use `OTP_PROVIDER=msg91` (or another real SMS adapter).
 
 ## OTP Provider — Staging Only
 

@@ -2333,6 +2333,9 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
 const isMain = import.meta.url === pathToFileURL(process.argv[1] || '').href;
 if (isMain) {
   const config = loadConfig();
+  if (config.isProd && config.provider === 'console') {
+    console.warn('[bff] WARNING: OTP_PROVIDER=console in production — codes are only logged, not delivered. Set OTP_PROVIDER=msg91 before real users.');
+  }
   const app = createApp(config);
   app.listen(config.port, () => console.log(`BFF (${config.env}) listening on http://127.0.0.1:${config.port}`));
 }
