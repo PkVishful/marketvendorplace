@@ -12,7 +12,7 @@ export default defineConfig({
     },
   },
   server: {
-    // The browser only ever talks to /api; the dev BFF (node server/dev-bff.mjs)
+    // The browser only ever talks to /api; the BFF (node server/bff.mjs)
     // holds the HTTP-only session cookie and enforces RLS. Same-origin via proxy
     // keeps the cookie first-party.
     proxy: {
