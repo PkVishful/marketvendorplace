@@ -16,8 +16,25 @@
 //     (still holds the notice, reads zero rows from test_orders) while it stays
 //     a live link for C.  -> proves the dead-link property end to end.
 
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { pool } from './db.mjs';
 import { saveKycDocument } from './kyc-upload.mjs';
+import { seedDistricts, assertLocalDb } from './seed-districts.mjs';
+import { seedContracts } from './seed-contracts.mjs';
+
+const serverDir = dirname(fileURLToPath(import.meta.url));
+
+async function runSqlFile(client, filename) {
+  const sql = readFileSync(join(serverDir, filename), 'utf8');
+  await client.query(sql);
+}
+
+async function ensureDevIdentity(client) {
+  await runSqlFile(client, 'seed-dev-identity.sql');
+  await runSqlFile(client, 'seed-vendor-fixtures.sql');
+}
 
 const VENDOR_A = '55555555-0000-0000-0000-00000000000a';
 const VENDOR_C = '55555555-0000-0000-0000-00000000000c';
@@ -176,9 +193,21 @@ async function seedFieldJob(client) {
 }
 
 async function main() {
+  // The remote Supabase is shared with a separate app; never seed against it.
+  assertLocalDb();
   const client = await pool.connect();
   try {
     await client.query('begin');
+
+    await ensureDevIdentity(client);
+
+    // All 38 TN districts with varied health, so the statewide map isn't just
+    // Coimbatore + Salem. Runs after the TN state node exists.
+    const districtSummary = await seedDistricts(client);
+
+    // Contractor / material-inspection demo (contracts, BOQ, deliveries) on the
+    // two deep districts, so the material flow has data end to end.
+    await seedContracts(client);
 
     // Idempotent: clear prior notification data (dev DB only) and demo order.
     await client.query('delete from eworks.notification_events');
@@ -248,7 +277,13 @@ async function main() {
          join eworks.user_profiles p on p.id = n.recipient_user_id
         group by p.id order by p.id`,
     );
-    console.log('Seed complete. Notifications per recipient:');
+    const spread = districtSummary.reduce((acc, r) => {
+      acc[r.profile] = (acc[r.profile] || 0) + 1;
+      return acc;
+    }, {});
+    console.log(`Seed complete. ${districtSummary.length} generated districts (+ Coimbatore, Salem = ${districtSummary.length + 2} total).`);
+    console.log('District health spread:', spread);
+    console.log('Notifications per recipient:');
     for (const r of rows) console.log('  ' + r.owner + '  ->  ' + r.notifications);
   } catch (err) {
     await pool.query('rollback').catch(() => {});

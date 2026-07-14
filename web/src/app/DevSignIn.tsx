@@ -6,7 +6,7 @@ import { TnEmblem } from '@/components/TnEmblem';
 import { PhoneSignIn } from '@/features/auth/PhoneSignIn';
 import { LANGUAGES } from '@/i18n';
 import { Building2, Moon, ShieldCheck, Sun, TestTube2 } from '@/lib/navIcons';
-import { DEV_GOV_USERS, DEV_VENDOR_USERS, devUserById } from './devUsers';
+import { DEV_VENDOR_USERS, DEV_CONTRACTOR_USERS, devUserById, govUsersByOrgLevel } from './devUsers';
 import { portalHomePathForSession, resolvePortal } from '@/types/domain';
 
 function UserGroup({
@@ -15,14 +15,16 @@ function UserGroup({
   users,
   onPick,
   disabled,
+  showScope,
 }: {
   title: string;
-  accent: 'vendor' | 'gov';
+  accent: 'vendor' | 'gov' | 'contractor';
   users: typeof DEV_VENDOR_USERS;
   onPick: (userId: string) => void;
   disabled: boolean;
+  showScope?: boolean;
 }) {
-  const dot = accent === 'gov' ? 'bg-brand' : 'bg-success';
+  const dot = accent === 'gov' ? 'bg-brand' : accent === 'contractor' ? 'bg-accent' : 'bg-success';
 
   return (
     <div className="overflow-hidden rounded-2xl border border-line/80 bg-surface-2/40">
@@ -43,7 +45,14 @@ function UserGroup({
               {v.label.slice(0, 2).toUpperCase()}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block font-semibold text-ink">{v.label}</span>
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-ink">{v.label}</span>
+                {showScope && v.scopeLabel && (
+                  <span className="rounded-md bg-brand-tint px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
+                    {v.scopeLabel}
+                  </span>
+                )}
+              </span>
               <span className="mt-0.5 block text-xs text-slate">{v.sub}</span>
             </span>
             <span className="text-brand opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true">
@@ -54,6 +63,12 @@ function UserGroup({
       </div>
     </div>
   );
+}
+
+function orgLevelLabel(level: string, t: (k: string) => string): string {
+  const key = `signIn.orgLevel.${level.toLowerCase()}`;
+  const translated = t(key);
+  return translated !== key ? translated : level.replace(/_/g, ' ');
 }
 
 function InfoFeature({
@@ -168,7 +183,7 @@ export function DevSignIn({
       </section>
 
       <section className="sign-in-panel">
-        <div className="flex items-center justify-end gap-2 border-b border-line/60 px-5 py-4 sm:px-8">
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-end gap-2 border-b border-line/60 bg-white/95 px-5 py-4 backdrop-blur-sm sm:px-8">
           <select
             aria-label={t('dev.language')}
             value={lang}
@@ -195,7 +210,7 @@ export function DevSignIn({
           </button>
         </div>
 
-        <div className="flex flex-1 flex-col justify-center px-5 py-8 sm:px-10 sm:py-10 lg:px-12">
+        <div className="flex min-h-0 flex-1 flex-col px-5 py-8 sm:px-10 sm:py-10 lg:justify-start lg:px-12">
           <div className="sign-in-slide-in mx-auto w-full max-w-md">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">
               {t('dev.signInTitle')}
@@ -231,19 +246,33 @@ export function DevSignIn({
                 <PhoneSignIn disabled={login.isPending} variant="panel" />
               ) : (
                 <div className="flex flex-col gap-4">
-                  <UserGroup
-                    title={t('dev.govPortal')}
-                    accent="gov"
-                    users={DEV_GOV_USERS}
-                    onPick={pick}
-                    disabled={login.isPending}
-                  />
+                  <p className="text-xs text-slate">{t('signIn.govHierarchyHelp')}</p>
+                  {govUsersByOrgLevel().map(({ level, users }) => (
+                    <UserGroup
+                      key={level}
+                      title={orgLevelLabel(level, t)}
+                      accent="gov"
+                      users={users}
+                      onPick={pick}
+                      disabled={login.isPending}
+                      showScope
+                    />
+                  ))}
                   <UserGroup
                     title={t('dev.vendorPortal')}
                     accent="vendor"
                     users={DEV_VENDOR_USERS}
                     onPick={pick}
                     disabled={login.isPending}
+                    showScope
+                  />
+                  <UserGroup
+                    title={t('dev.contractorPortal')}
+                    accent="contractor"
+                    users={DEV_CONTRACTOR_USERS}
+                    onPick={pick}
+                    disabled={login.isPending}
+                    showScope
                   />
                 </div>
               )}

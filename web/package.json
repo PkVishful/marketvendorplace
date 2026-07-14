@@ -5,8 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "bff": "node server/dev-bff.mjs",
+    "bff": "node server/bff.mjs",
+    "start": "EWORKS_ENV=production NODE_ENV=production node server/bff.mjs",
     "seed": "node server/seed-dev.mjs",
+    "seed:districts": "node server/seed-districts.mjs",
+    "seed:contracts": "node server/seed-contracts.mjs",
+    "seed:identity": "node server/seed-identity.mjs",
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "lint": "oxlint",
@@ -26,6 +30,7 @@
     "react-hook-form": "^7.81.0",
     "react-i18next": "^17.0.9",
     "react-router-dom": "^7.18.1",
+    "recharts": "^3.9.2",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },

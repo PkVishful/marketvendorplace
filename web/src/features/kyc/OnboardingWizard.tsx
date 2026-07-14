@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { FeedSkeleton } from '@/components/Skeleton';
 import { KYC_DOC_TYPES } from './constants';
+import { kycFileUrl } from './api';
 import {
   useKycOnboarding,
   useSaveKycCapabilities,
@@ -27,6 +28,11 @@ export function OnboardingWizard() {
   const [step, setStep] = useState<Step>(0);
   const [error, setError] = useState<string | null>(null);
   const [selectedTests, setSelectedTests] = useState<string[]>([]);
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [justUploaded, setJustUploaded] = useState<string | null>(null);
+  // Optimistic upload state: reflect success instantly, don't wait for refetch.
+  const [localUploaded, setLocalUploaded] = useState<Set<string>>(new Set());
+  const [uploadVer, setUploadVer] = useState(0);
 
   const [form, setForm] = useState({
     legalName: '',
@@ -96,7 +102,17 @@ export function OnboardingWizard() {
   async function onNext() {
     setError(null);
     try {
-      if (step <= 3) await persistProfile();
+      // The profile can only be saved once every required field has been
+      // collected (name on step 0, address on step 1, GST/PAN on step 2). Saving
+      // earlier sends empty GST/PAN and the server rejects it. So persist from
+      // the tax step (2) onward, not on steps 0–1.
+      if (step >= 2 && step <= 3) {
+        if (!form.legalName || !form.address || !form.gstin || !form.pan) {
+          setError(t('kyc.fillRequired'));
+          return;
+        }
+        await persistProfile();
+      }
       if (step === 5) await saveCaps.mutateAsync(selectedTests);
       setStep((s) => Math.min(6, s + 1) as Step);
     } catch (err) {
@@ -106,11 +122,18 @@ export function OnboardingWizard() {
 
   async function onUpload(docType: string, file: File) {
     setError(null);
+    setUploading(docType);
     try {
       const { dataUrl, mimeType } = await fileToDataUrl(file);
       await uploadDoc.mutateAsync({ docType, dataUrl, mimeType });
+      setLocalUploaded((prev) => new Set(prev).add(docType));
+      setUploadVer((v) => v + 1);
+      setJustUploaded(docType);
+      window.setTimeout(() => setJustUploaded((d) => (d === docType ? null : d)), 2500);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('kyc.uploadFailed'));
+    } finally {
+      setUploading(null);
     }
   }
 
@@ -124,7 +147,7 @@ export function OnboardingWizard() {
     }
   }
 
-  const uploaded = new Set((data?.documents ?? []).map((d) => d.docType));
+  const uploaded = new Set([...(data?.documents ?? []).map((d) => d.docType), ...localUploaded]);
 
   return (
     <section className="space-y-6">
@@ -236,29 +259,56 @@ export function OnboardingWizard() {
         )}
 
         {step === 4 && (
-          <ul className="space-y-4">
-            {KYC_DOC_TYPES.map((docType) => (
-              <li key={docType} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line p-4">
-                <div>
-                  <p className="font-semibold text-ink">{t(`kyc.doc.${docType}`)}</p>
-                  <p className="text-xs text-slate">
-                    {uploaded.has(docType) ? t('kyc.uploaded') : t('kyc.required')}
-                  </p>
-                </div>
-                <label className="gov-btn-secondary cursor-pointer">
-                  {t('kyc.upload')}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) void onUpload(docType, file);
-                    }}
-                  />
-                </label>
-              </li>
-            ))}
+          <ul className="space-y-3">
+            {KYC_DOC_TYPES.map((docType) => {
+              const done = uploaded.has(docType);
+              const busy = uploading === docType;
+              const flash = justUploaded === docType;
+              return (
+                <li
+                  key={docType}
+                  className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 transition ${
+                    flash ? 'border-success bg-success/10' : done ? 'border-success/40 bg-success/5' : 'border-line'
+                  }`}
+                >
+                  {done && vendor?.id ? (
+                    <img
+                      src={`${kycFileUrl(vendor.id, docType)}?v=${uploadVer}`}
+                      alt=""
+                      className="h-11 w-11 flex-none rounded-lg border border-line object-cover"
+                    />
+                  ) : (
+                    <span className="grid h-11 w-11 flex-none place-items-center rounded-lg bg-surface-2 text-slate">📄</span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-ink">{t(`kyc.doc.${docType}`)}</p>
+                    <p className="text-xs">
+                      {busy ? (
+                        <span className="text-slate">{t('kyc.uploadingDoc')}</span>
+                      ) : done ? (
+                        <span className="font-bold text-success">✓ {t('kyc.uploaded')}</span>
+                      ) : (
+                        <span className="text-slate">{t('kyc.required')}</span>
+                      )}
+                    </p>
+                  </div>
+                  <label className={`gov-btn-secondary cursor-pointer ${busy ? 'pointer-events-none opacity-50' : ''}`}>
+                    {done ? t('kyc.replace') : t('kyc.upload')}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      disabled={busy}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void onUpload(docType, file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                </li>
+              );
+            })}
           </ul>
         )}
 

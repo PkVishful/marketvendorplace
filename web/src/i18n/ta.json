@@ -20,17 +20,88 @@
   },
   "dashboard": {
     "welcome": "வரவேற்பு",
+    "greetingMorning": "காலை வணக்கம்",
+    "greetingAfternoon": "மதிய வணக்கம்",
+    "greetingEvening": "மாலை வணக்கம்",
+    "verified": "சரிபார்க்கப்பட்டது",
+    "managingWorks": "{{district}} மாவட்டத்தில் பொதுப்பணிகளை நிர்வகித்தல்",
+    "open": "திற",
+    "systemsLive": "அனைத்து அமைப்புகளும் செயலில்",
+    "lastLogin": "கடைசி உள்நுழைவு: இன்று, 10:15 AM",
+    "settings": "அமைப்புகள்",
+    "helpSupport": "உதவி & ஆதரவு",
     "govSubtitle": "உங்கள் பணி இடம் — பங்கு மற்றும் அமைப்புக்கு ஏற்ப தொகுதிகள்.",
     "rlsNote": "RLS வடிகட்டிய தரவு.",
     "kpiTitle": "சுருக்கம்",
-    "modulesTitle": "தொகுதிகள்",
+    "kpiTitleGov": "முக்கிய அரசு அளவீடுகள்",
+    "operationalIntel": "செயல்பாட்டு நுண்ணறிவு",
+    "procurementTrend": "கொள்முதல் போக்கு",
+    "rfqStatus": "RFQ நிலை",
+    "budgetGauge": "பட்ஜெட் பயன்பாடு",
+    "budgetDesc": "FY 2024-25 சோதனை மற்றும் தர உத்தரவாத திட்டங்களுக்கான மாவட்ட ஒதுக்கீடு.",
+    "totalBudget": "மொத்த பட்ஜெட்",
+    "peakValue": "உச்ச மதிப்பு",
+    "monthlyAvg": "மாத சராசரி",
+    "yoyGrowth": "YoY வளர்ச்சி",
+    "priorityActions": "முன்னுரிமை நடவடிக்கைகள்",
+    "notificationsPanel": "அறிவிப்புகள்",
+    "aiInsights": "AI நுண்ணறிவு",
+    "performanceTitle": "செயல்திறன் & நடவடிக்கைகள்",
+    "districtPerformance": "மாவட்ட செயல்திறன்",
+    "districtMap": {
+      "title": "வரைபடம்",
+      "talukas": "தாலுகாக்கள்",
+      "districts": "மாவட்டங்கள்",
+      "ariaLabel": "{{district}} மாவட்ட செயல்திறன் வரைபடம்",
+      "strong": "வலுவான",
+      "watch": "கவனம்",
+      "attention": "கவனம் தேவை",
+      "showingDistricts": "{{shown}} / {{total}} மாவட்டங்கள்"
+    },
+    "deptPerformance": "துறை செயல்திறன்",
+    "budgetSummary": "பட்ஜெட் சுருக்கம்",
+    "budgetUtilized": "மொத்த பட்ஜெட்டில் {{pct}}% பயன்படுத்தப்பட்டது",
+    "utilized": "பயன்படுத்தப்பட்டது",
+    "remaining": "மீதம்",
+    "recentActivities": "சமீப நடவடிக்கைகள்",
+    "upcomingDeadlines": "வரவிருக்கும் காலக்கெடுக்கள்",
+    "modulesTitle": "துறை தொகுதிகள்",
     "recentOrders": "சமீப ஆர்டர்கள்",
     "recentActivity": "சமீப அறிவிப்புகள்",
     "viewAll": "அனைத்தும்",
     "searchPlaceholder": "தேடு…",
+    "searchPlaceholderFull": "RFQ, Vendor, Contractor, Project தேடு…",
     "openMenu": "மெனு",
     "closeMenu": "மூடு",
+    "footer": {
+      "secure": "பாதுகாப்பு",
+      "transparent": "வெளிப்படைத்தன்மை",
+      "trusted": "நம்பிக்கை",
+      "access": "அணுகல்",
+      "portal": "போர்டல்",
+      "build": "Build",
+      "support": "ஆதரவு",
+      "testingMarketplace": "Testing Marketplace",
+      "version": "Version 1.0.0"
+    },
+    "actions": {
+      "createRfq": "RFQ உருவாக்கு",
+      "registerVendor": "Vendor பதிவு",
+      "uploadReport": "அறிக்கை பதிவேற்று",
+      "approveVendor": "Vendor அங்கீகாரம்",
+      "generateReport": "அறிக்கை உருவாக்கு",
+      "viewAnalytics": "Analytics பார்"
+    },
     "kpi": {
+      "complianceRate": "இணக்க விகிதம்",
+      "pendingApprovals": "நிலுவை அங்கீகாரங்கள்",
+      "rfqClosingToday": "இன்று மூடும் RFQ",
+      "vendorRegistrations": "Vendor பதிவுகள்",
+      "criticalAlerts": "முக்கிய எச்சரிக்கைகள்",
+      "budgetUtilization": "பட்ஜெட் பயன்பாடு",
+      "zeroCritical": "0 critical",
+      "thisWeek": "இந்த வாரம் {{count}}",
+      "highPriority": "{{count}} high priority",
       "floated": "திறந்த டெண்டர்கள்",
       "awarded": "வழங்கப்பட்டவை",
       "pendingKyc": "KYC நிலுவை",
@@ -43,6 +114,59 @@
       "unreadAlerts": "படிக்காத அறிவிப்பு",
       "heldPayments": "பிடித்த கட்டணம்",
       "releasedHint": "{{amount}} விடுவிக்கப்பட்டது"
+    },
+    "modules": {
+      "activeRfq": "{{count}} Active RFQ",
+      "awarded": "வழங்கப்பட்டது",
+      "pending": "நிலுவை",
+      "pendingKyc": "{{count}} Pending KYC",
+      "approved": "அங்கீகரிக்கப்பட்டது",
+      "qualityAlerts": "{{count}} Quality Alerts",
+      "onTrack": "On track",
+      "yoyGrowth": "+{{pct}}% YoY Growth",
+      "peakValue": "Peak",
+      "auditEvents": "{{count}} Audit Events",
+      "today": "இன்று",
+      "scheduledTests": "{{count}} Scheduled Tests",
+      "certificates": "Certificates"
+    },
+    "priority": {
+      "expiringRfq": "Expiring RFQs",
+      "openEscalations": "Open escalations",
+      "kycReview": "KYC documents awaiting review",
+      "certRenewal": "Certificate renewals due"
+    },
+    "notif": {
+      "kycAwaiting": "KYC documents awaiting review",
+      "rfqClosing": "RFQ closing today",
+      "vendorApproved": "Vendor registration approved",
+      "qualityAlert": "Quality alert flagged",
+      "minAgo": "{{n}} min ago",
+      "hrAgo": "{{n}} hr ago"
+    },
+    "insights": {
+      "vendorApprovals": "Vendor approvals increased by 24% this month",
+      "complianceTrend": "Compliance rate trending upward",
+      "budgetForecast": "Budget utilization on track"
+    },
+    "dept": {
+      "roads": "Roads & Bridges",
+      "buildings": "Buildings",
+      "water": "Water Resources",
+      "quality": "Quality Assurance"
+    },
+    "activity": {
+      "rfqFloated": "RFQ floated for Coimbatore Flyover",
+      "vendorApproved": "Vendor KYC approved",
+      "reportUploaded": "Quality report uploaded",
+      "kycCompleted": "KYC review batch completed",
+      "awardIssued": "L1 award issued"
+    },
+    "deadline": {
+      "kycBatch": "KYC review batch",
+      "rfqReview": "RFQ evaluation review",
+      "qualityAudit": "Quality assurance audit",
+      "budgetReport": "Quarterly budget report"
     },
     "qualityDesc": "மைல்கல் நிலை.",
     "analyticsDesc": "கொள்முதல் KPI.",
@@ -79,7 +203,8 @@
     "language": "மொழி",
     "vendorPortal": "ஆய்வக / விற்பனையாளர் போர்டல்",
     "govPortal": "அரசு போர்டல்",
-    "secureNote": "Row-level security · MeitY-ready கட்டமைப்பு"
+    "secureNote": "Row-level security · MeitY-ready கட்டமைப்பு",
+    "contractorPortal": "ஒப்பந்ததாரர் போர்ட்டல்"
   },
   "nav": {
     "vendor": "விற்பனையாளர் வழிசெலுத்தல்",
@@ -89,7 +214,9 @@
     "orders": "திறந்த டெண்டர்கள்",
     "jobs": "கள பணிகள்",
     "notifications": "அறிவிப்புகள்",
-    "earnings": "வருவாய்"
+    "earnings": "வருவாய்",
+    "contractorBadge": "ஒப்பந்ததாரர்",
+    "contractor": "ஒப்பந்ததாரர் வழிசெலுத்தல்"
   },
   "vendor": {
     "navHome": "டாஷ்போர்டு",
@@ -217,8 +344,18 @@
     "colAction": "Action",
     "viewOrder": "View",
     "escalationOpen": "{{count}} escalation",
-    "count": { "green": "Verified", "amber": "In progress", "red": "Attention", "neutral": "Procurement" },
-    "health": { "green": "Green", "amber": "Amber", "red": "Red", "neutral": "Neutral" }
+    "count": {
+      "green": "Verified",
+      "amber": "In progress",
+      "red": "Attention",
+      "neutral": "Procurement"
+    },
+    "health": {
+      "green": "Green",
+      "amber": "Amber",
+      "red": "Red",
+      "neutral": "Neutral"
+    }
   },
   "ratings": {
     "nav": "Lab scorecards",
@@ -233,7 +370,13 @@
     "colAwards": "Awards",
     "colEscalations": "Esc.",
     "footnote": "Computed tiers.",
-    "tier": { "excellent": "Excellent", "good": "Good", "watch": "Watch", "new": "New", "neutral": "Neutral" }
+    "tier": {
+      "excellent": "Excellent",
+      "good": "Good",
+      "watch": "Watch",
+      "new": "New",
+      "neutral": "Neutral"
+    }
   },
   "earnings": {
     "title": "Earnings",
@@ -270,6 +413,32 @@
     "system": "System",
     "loadMore": "Load more"
   },
+  "officers": {
+    "nav": "அதிகாரிகள்",
+    "title": "அதிகாரி பட்டியல்",
+    "subtitle": "உங்கள் org scope-ல் உள்ள அரசு அதிகாரிகள் — role, office, mobile.",
+    "noAccessTitle": "அதிகாரி பட்டியல் அணுகல் தேவை",
+    "noAccessBody": "user.read permission தேவை (district officer, EE, auditor, அல்லது head admin).",
+    "search": "அதிகாரிகளை தேடு",
+    "searchPlaceholder": "பெயர், phone, office, role…",
+    "filterAll": "அனைத்து roles",
+    "count": "{{shown}} / {{total}} காட்டப்படுகிறது",
+    "emptyTitle": "Scope-ல் அதிகாரிகள் இல்லை",
+    "emptyBody": "Org tree-ல் role உள்ள அதிகாரிகள் இங்கே தோன்றும்.",
+    "colName": "பெயர்",
+    "colPhone": "Mobile",
+    "colRole": "Role",
+    "colOrg": "Office",
+    "colLevel": "Level",
+    "colGranted": "Granted",
+    "role": {
+      "HEAD_ADMIN": "Head Admin",
+      "DISTRICT_OFFICER": "District Officer",
+      "EXECUTIVE_ENGINEER": "Executive Engineer",
+      "SITE_ENGINEER": "Section Engineer",
+      "AUDITOR": "Auditor"
+    }
+  },
   "signIn": {
     "heroTitle": "கட்டுமான சோதனை — வெளிப்படையாக",
     "heroDesc": "E-Works அங்கீகரிக்கப்பட்ட ஆய்வகங்களை தமிழ்நாடு அரசுத் திட்டங்களுடன் இணைக்கிறது — டெண்டர் முதல் சான்றிதழ் வரை.",
@@ -281,7 +450,18 @@
     "forPublicDesc": "எவரும் test certificate உண்மையா என்பதை login இல்லாமல் சரிபார்க்கலாம்.",
     "footer": "தமிழ்நாடு அரசு · பொதுப்பணித்துறை",
     "rightFooter": "உங்கள் ஆய்வகம் அல்லது துறைக் கணக்கில் பதிவு செய்யப்பட்ட mobile number பயன்படுத்துங்கள்.",
-    "devHelp": "Vendor அல்லது gov portal explore செய்ய demo persona தேர்ந்தெடுக்கவும்."
+    "devHelp": "Vendor அல்லது gov portal explore செய்ய demo persona தேர்ந்தெடுக்கவும்.",
+    "govHierarchyHelp": "ஒவ்வொரு login-ம் org level-க்கு scoped — State அனைத்து மாவட்டங்கள்; District officer தங்கள் மாவட்டம்; Section engineer தங்கள் section.",
+    "orgLevel": {
+      "state": "மாநிலம்",
+      "district": "மாவட்டம்",
+      "division": "Division",
+      "circle": "Circle",
+      "subdivision": "Subdivision",
+      "section": "Section",
+      "field_unit": "Field unit",
+      "project": "Project"
+    }
   },
   "auth": {
     "tabPhone": "Phone sign-in",
@@ -554,7 +734,10 @@
       "ADDRESS_PROOF": "Address proof",
       "ID_PROOF": "Signatory ID",
       "BANK_PROOF": "Bank proof"
-    }
+    },
+    "fillRequired": "தொடர்வதற்கு முன் தேவையான அனைத்து புலங்களையும் (பெயர், முகவரி, ஜிஎஸ்டிஐஎன், பான்) நிரப்பவும்.",
+    "uploadingDoc": "பதிவேற்றுகிறது…",
+    "replace": "மாற்று"
   },
   "feed": {
     "title": "அறிவிப்புகள்",
@@ -568,16 +751,38 @@
     "emptyBody": "உங்கள் ஆய்வகத்திற்கு டெண்டர் வெளியிடப்பட்டால் அல்லது உங்கள் ஏலம் முடிவு செய்யப்பட்டால் இங்கே தோன்றும்.",
     "errorTitle": "இந்தப் பகுதியை ஏற்ற முடியவில்லை",
     "errorBody": "சேவையகத்தை அணுகுவதில் சிக்கல் ஏற்பட்டது. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
-    "retry": "மீண்டும் முயற்சிக்கவும்"
+    "retry": "மீண்டும் முயற்சிக்கவும்",
+    "saving": "சேமிக்கிறது…"
   },
   "event": {
-    "VENDOR_APPROVED": { "title": "உங்கள் ஆய்வகம் அங்கீகரிக்கப்பட்டது", "desc": "உங்கள் அங்கீகாரம் சரிபார்க்கப்பட்டது. இப்போது டெண்டர்களைப் பெறலாம், ஏலம் இடலாம்." },
-    "VENDOR_REJECTED": { "title": "அங்கீகாரம் நிராகரிக்கப்பட்டது", "desc": "உங்கள் ஆய்வகம் அங்கீகரிக்கப்படவில்லை. காரணத்திற்கு மாவட்ட அலுவலகத்தைத் தொடர்பு கொள்ளவும்." },
-    "ORDER_FLOATED": { "title": "நீங்கள் ஏலம் இடக்கூடிய புதிய டெண்டர்", "desc": "உங்கள் சேவைப் பகுதியில் ஒரு சோதனை ஆர்டர் வெளியிடப்பட்டது." },
-    "REVEAL_WINDOW_OPEN": { "title": "உங்கள் மறைக்கப்பட்ட ஏலத்தை வெளிப்படுத்தவும்", "desc": "ஏலம் முடிந்தது. இப்போது உங்கள் விலையை வெளிப்படுத்தவும், இல்லையேல் ஏலம் இழக்கப்பட்டு EMD நஷ்டமாகும்." },
-    "AWARD_WON": { "title": "நீங்கள் வென்றீர்கள்", "desc": "உங்கள் ஏலம் தேர்ந்தெடுக்கப்பட்டது. உங்கள் விலையில் பணம் நிறுத்தி வைக்கப்பட்டுள்ளது." },
-    "AWARD_LOST": { "title": "இந்த முறை தேர்ந்தெடுக்கப்படவில்லை", "desc": "வேறு ஆய்வகத்திற்கு இந்த டெண்டர் வழங்கப்பட்டது." },
-    "ORDER_FAILED": { "title": "டெண்டர் வழங்கப்படாமல் மூடப்பட்டது", "desc": "தகுதியான ஏலம் இல்லாமல் டெண்டர் மூடப்பட்டது." }
+    "VENDOR_APPROVED": {
+      "title": "உங்கள் ஆய்வகம் அங்கீகரிக்கப்பட்டது",
+      "desc": "உங்கள் அங்கீகாரம் சரிபார்க்கப்பட்டது. இப்போது டெண்டர்களைப் பெறலாம், ஏலம் இடலாம்."
+    },
+    "VENDOR_REJECTED": {
+      "title": "அங்கீகாரம் நிராகரிக்கப்பட்டது",
+      "desc": "உங்கள் ஆய்வகம் அங்கீகரிக்கப்படவில்லை. காரணத்திற்கு மாவட்ட அலுவலகத்தைத் தொடர்பு கொள்ளவும்."
+    },
+    "ORDER_FLOATED": {
+      "title": "நீங்கள் ஏலம் இடக்கூடிய புதிய டெண்டர்",
+      "desc": "உங்கள் சேவைப் பகுதியில் ஒரு சோதனை ஆர்டர் வெளியிடப்பட்டது."
+    },
+    "REVEAL_WINDOW_OPEN": {
+      "title": "உங்கள் மறைக்கப்பட்ட ஏலத்தை வெளிப்படுத்தவும்",
+      "desc": "ஏலம் முடிந்தது. இப்போது உங்கள் விலையை வெளிப்படுத்தவும், இல்லையேல் ஏலம் இழக்கப்பட்டு EMD நஷ்டமாகும்."
+    },
+    "AWARD_WON": {
+      "title": "நீங்கள் வென்றீர்கள்",
+      "desc": "உங்கள் ஏலம் தேர்ந்தெடுக்கப்பட்டது. உங்கள் விலையில் பணம் நிறுத்தி வைக்கப்பட்டுள்ளது."
+    },
+    "AWARD_LOST": {
+      "title": "இந்த முறை தேர்ந்தெடுக்கப்படவில்லை",
+      "desc": "வேறு ஆய்வகத்திற்கு இந்த டெண்டர் வழங்கப்பட்டது."
+    },
+    "ORDER_FAILED": {
+      "title": "டெண்டர் வழங்கப்படாமல் மூடப்பட்டது",
+      "desc": "தகுதியான ஏலம் இல்லாமல் டெண்டர் மூடப்பட்டது."
+    }
   },
   "pill": {
     "VENDOR_APPROVED": "அங்கீகரிக்கப்பட்டது",
@@ -595,5 +800,72 @@
     "markRead": "படித்ததாகக் குறி",
     "order": "ஆர்டர்",
     "unread": "படிக்காதது"
+  },
+  "contractor": {
+    "roleLabel": "ஒப்பந்ததாரர்",
+    "navContracts": "எனது ஒப்பந்தங்கள்",
+    "navRegistration": "பதிவு",
+    "contractsTitle": "எனது ஒப்பந்தங்கள்",
+    "contractsSubtitle": "நீங்கள் ஏலம் கோரக்கூடிய திறந்த ஒப்பந்தங்கள் மற்றும் உங்களுக்கு வழங்கப்பட்டவை.",
+    "project": "திட்டம்",
+    "statusOpen": "ஏலத்திற்கு திறந்துள்ளது",
+    "statusAwarded": "வழங்கப்பட்டது",
+    "estValue": "மதிப்பிடப்பட்ட மதிப்பு",
+    "awardedToYou": "உங்கள் நிறுவனத்திற்கு வழங்கப்பட்டது.",
+    "noContracts": "தற்போது திறந்த ஒப்பந்தங்கள் எதுவும் இல்லை.",
+    "bidAmount": "உங்கள் ஏலம் (₹)",
+    "submitBid": "ஏலத்தை சமர்ப்பி",
+    "reviseBid": "ஏலத்தை மாற்று",
+    "bidPlaced": "உங்கள் தற்போதைய ஏலம்: {{amount}}",
+    "bidInvalid": "சரியான ஏல தொகையை உள்ளிடவும்.",
+    "status": {
+      "DRAFT": "வரைவு",
+      "SUBMITTED": "சமர்ப்பிக்கப்பட்டது — ஒப்புதலுக்காக காத்திருக்கிறது",
+      "APPROVED": "அங்கீகரிக்கப்பட்டது",
+      "REJECTED": "நிராகரிக்கப்பட்டது",
+      "SUSPENDED": "இடைநிறுத்தப்பட்டது"
+    },
+    "doc": {
+      "PAN": "பான் அட்டை",
+      "GST_CERTIFICATE": "ஜிஎஸ்டி சான்றிதழ்",
+      "LICENCE": "ஒப்பந்ததாரர் உரிமம்",
+      "ADDRESS_PROOF": "முகவரி சான்று",
+      "ID_PROOF": "அடையாள சான்று",
+      "BANK_PROOF": "வங்கி சான்று"
+    },
+    "reg": {
+      "title": "ஒப்பந்ததாரர் பதிவு",
+      "subtitle": "ஒருமுறை பதிவு செய்யவும். மாவட்ட அதிகாரி மதிப்பாய்வு செய்து அங்கீகரிப்பார்.",
+      "statusIntro": "உங்கள் பதிவு சமர்ப்பிக்கப்பட்டது.",
+      "statusLabel": "நிலை",
+      "locked": "மதிப்பாய்வின் போது உங்கள் விவரங்கள் பூட்டப்பட்டுள்ளன. முடிவு எடுக்கப்பட்டவுடன் உங்களுக்கு அறிவிக்கப்படும்.",
+      "step": {
+        "profile": "நிறுவனம்",
+        "documents": "ஆவணங்கள்",
+        "review": "மதிப்பாய்வு"
+      },
+      "legalName": "சட்டப்பூர்வ / நிறுவனப் பெயர்",
+      "gstin": "ஜிஎஸ்டிஐஎன்",
+      "pan": "பான்",
+      "address": "முகவரி",
+      "licenceClass": "ஒப்பந்ததாரர் வகுப்பு",
+      "licenceNo": "உரிம எண்",
+      "docsHelp": "ஒவ்வொரு ஆவணத்தின் தெளிவான படத்தைப் பதிவேற்றவும். நட்சத்திரக் குறியிட்ட ஆவணங்கள் அவசியம்.",
+      "upload": "பதிவேற்று",
+      "replace": "மாற்று",
+      "uploaded": "பதிவேற்றப்பட்டது",
+      "reviewTitle": "மதிப்பாய்வு & சமர்ப்பி",
+      "missingDocs": "இன்னும் தேவை",
+      "fillAll": "அனைத்து புலங்களையும் நிரப்பவும்.",
+      "back": "பின்",
+      "next": "அடுத்து",
+      "submit": "ஒப்புதலுக்கு சமர்ப்பி",
+      "uploadingDoc": "பதிவேற்றுகிறது…",
+      "notUploaded": "இன்னும் பதிவேற்றப்படவில்லை",
+      "requiredUploaded": "தேவையான ஆவணங்கள் பதிவேற்றப்பட்டன"
+    },
+    "notApprovedTitle": "ஏலம் கோர உங்கள் பதிவை முடிக்கவும்",
+    "notApprovedBody": "மாவட்ட அதிகாரியால் உங்கள் ஒப்பந்ததாரர் பதிவு அங்கீகரிக்கப்பட்டவுடன் திறந்த ஒப்பந்தங்கள் இங்கே தோன்றும்.",
+    "goToRegistration": "பதிவுக்குச் செல்"
   }
 }

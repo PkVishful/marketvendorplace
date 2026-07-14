@@ -26,6 +26,7 @@ describe('govNavForSession (permission-driven)', () => {
     );
     expect(t).toContain('/gov/orders'); // order.read
     expect(t).toContain('/gov/vendors'); // vendor.read/approve
+    expect(t).toContain('/gov/officers'); // user.read
     expect(t).toContain('/gov/quality'); // order.read
     expect(t).toContain('/gov/ratings'); // vendor.read
     expect(t).toContain('/gov/analytics'); // order.read

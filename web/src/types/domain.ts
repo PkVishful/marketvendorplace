@@ -2,7 +2,7 @@
 // the BFF/PostgREST types are generated (`supabase gen types typescript`), the
 // generated row types slot in behind these view models.
 
-export type Portal = 'vendor' | 'gov' | 'unknown';
+export type Portal = 'vendor' | 'gov' | 'contractor' | 'unknown';
 
 // Government org hierarchy, shallowest → deepest. Mirrors the eworks.org_level
 // enum; declaration order IS the authority order (STATE is highest).
@@ -22,6 +22,9 @@ export type OrgLevel = (typeof ORG_LEVELS)[number];
 // Vendor KYC lifecycle, mirrors the eworks.vendor_status enum.
 export type VendorStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 
+// Contractor KYC lifecycle, mirrors eworks.contractor_status.
+export type ContractorStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+
 export interface UserRole {
   code: string;
   orgName: string;
@@ -40,11 +43,15 @@ export interface Session {
   vendorId?: string | null;
   vendorName?: string | null;
   vendorStatus?: VendorStatus | null;
+  contractorId?: string | null;
+  contractorName?: string | null;
+  contractorStatus?: ContractorStatus | null;
 }
 
 export function portalHomePath(portal: Portal | undefined): string {
   if (portal === 'vendor') return '/vendor';
   if (portal === 'gov') return '/gov';
+  if (portal === 'contractor') return '/contractor';
   return '/sign-in';
 }
 
@@ -55,8 +62,48 @@ export function portalHomePathForSession(session: Session): string {
 }
 
 export function resolvePortal(session: Session): Portal | undefined {
-  if (session.portal === 'vendor' || session.portal === 'gov') return session.portal;
+  if (session.portal === 'vendor' || session.portal === 'gov' || session.portal === 'contractor') {
+    return session.portal;
+  }
   return undefined;
+}
+
+// Contractor onboarding + contracts (contractor-facing DTOs).
+export interface ContractorProfile {
+  id: string;
+  legalName: string;
+  gstin: string;
+  pan: string;
+  address: string;
+  licenceClass: string;
+  licenceNo: string;
+  status: ContractorStatus;
+  districtName: string;
+}
+
+export interface ContractorDocument {
+  id: string;
+  docType: string;
+  status: string;
+  mimeType: string;
+  storagePath: string;
+  rejectReason?: string | null;
+}
+
+export interface ContractorOnboardingDTO {
+  contractor: ContractorProfile | null;
+  documents: ContractorDocument[];
+}
+
+export interface ContractSummary {
+  id: string;
+  code: string;
+  title: string;
+  valuePaise: number;
+  status: 'DRAFT' | 'FLOATED' | 'AWARDED' | 'CANCELLED';
+  projectName: string;
+  myBidPaise: number | null;
+  myBidAt: string | null;
 }
 
 export const EVENT_TYPES = [
@@ -444,4 +491,20 @@ export interface ProcurementAnalyticsDTO {
     pricePaise: number;
     awardedAt: string;
   }[];
+}
+
+/** One row per gov role grant visible under user.read RLS. */
+export interface GovOfficerRow {
+  userId: string;
+  phone: string;
+  fullName: string;
+  isActive: boolean;
+  roleCode: string;
+  roleName: string | null;
+  orgUnitId: string;
+  orgName: string;
+  orgLevel: OrgLevel;
+  orgPath: string;
+  grantedAt: string;
+  expiresAt: string | null;
 }

@@ -8,7 +8,7 @@ import { UnreadBadge } from '@/features/notifications/UnreadBadge';
 import { Bell, Moon, Sun } from '@/lib/navIcons';
 
 interface GovHeaderProps {
-  portal?: 'vendor' | 'gov' | null;
+  portal?: 'vendor' | 'gov' | 'contractor' | null;
   userName?: string;
   roleLabel?: string;
   orgScope?: string;

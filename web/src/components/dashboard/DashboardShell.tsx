@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { HelpCircle, Search, Settings } from 'lucide-react';
 import { LANGUAGES } from '@/i18n';
 import { TnEmblem } from '@/components/TnEmblem';
 import { UnreadBadge } from '@/features/notifications/UnreadBadge';
-import { NavIcon, Bell, Menu, Moon, Sun, X } from '@/lib/navIcons';
+import { NavIcon, Bell, Building2, Menu, Moon, Sun, X } from '@/lib/navIcons';
 
 export interface DashboardNavItem {
   to: string;
@@ -13,12 +14,13 @@ export interface DashboardNavItem {
 }
 
 interface DashboardShellProps {
-  portal: 'gov' | 'vendor';
+  portal: 'gov' | 'vendor' | 'contractor';
   homePath: string;
   navItems: DashboardNavItem[];
   userName?: string;
   roleLabel?: string;
   orgScope?: string;
+  districtId?: string;
   notificationHref?: string;
   notificationCount?: number;
   theme: 'light' | 'dark';
@@ -26,17 +28,26 @@ interface DashboardShellProps {
   lang: string;
   onLangChange: (code: string) => void;
   onSignOut: () => void;
+  footer?: ReactNode;
   children: ReactNode;
+}
+
+function breadcrumbLabel(pathname: string, homePath: string, navItems: DashboardNavItem[]): string {
+  if (pathname === homePath || pathname === `${homePath}/`) return 'Dashboard';
+  const match = navItems.find((n) => pathname.startsWith(n.to) && n.to !== homePath);
+  return match?.label ?? 'Dashboard';
 }
 
 function DashboardUserMenu({
   name,
   roleLabel,
   onSignOut,
+  compact,
 }: {
   name?: string;
   roleLabel?: string;
   onSignOut: () => void;
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -66,10 +77,17 @@ function DashboardUserMenu({
         onClick={() => setOpen((p) => !p)}
         className="flex min-h-[44px] items-center gap-2 rounded-xl border border-line bg-surface px-2 py-1.5 hover:bg-surface-2 sm:px-3"
       >
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-xs font-bold text-white">
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-xs font-bold text-brand-dark">
           {initials}
         </span>
-        <span className="hidden max-w-[120px] truncate text-xs font-medium text-ink sm:block">{name}</span>
+        {!compact && (
+          <span className="hidden min-w-0 text-left md:block">
+            <span className="block max-w-[140px] truncate text-xs font-semibold text-ink">{name}</span>
+            {roleLabel && (
+              <span className="block max-w-[140px] truncate text-[10px] text-slate">{roleLabel}</span>
+            )}
+          </span>
+        )}
       </button>
       {open && (
         <div
@@ -104,6 +122,7 @@ export function DashboardShell({
   userName,
   roleLabel,
   orgScope,
+  districtId,
   notificationHref,
   notificationCount = 0,
   theme,
@@ -111,13 +130,23 @@ export function DashboardShell({
   lang,
   onLangChange,
   onSignOut,
+  footer,
   children,
 }: DashboardShellProps) {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isTa = i18n.language === 'ta';
-  const portalBadge = portal === 'gov' ? t('nav.govBadge') : t('nav.vendorBadge');
+  const portalBadge =
+    portal === 'gov' ? t('nav.govBadge') : portal === 'contractor' ? t('nav.contractorBadge') : t('nav.vendorBadge');
+  const pageLabel = breadcrumbLabel(location.pathname, homePath, navItems);
+
+  const initials = (userName ?? '?')
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -138,7 +167,7 @@ export function DashboardShell({
       )}
 
       <aside
-        className={`dash-sidebar fixed inset-y-0 left-0 z-50 flex h-screen w-[min(100%,17.5rem)] flex-col bg-brand text-white transition-transform duration-300 ${
+        className={`dash-sidebar fixed inset-y-0 left-0 z-50 flex h-screen w-[min(100%,17.5rem)] flex-col text-white transition-transform duration-300 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -163,7 +192,7 @@ export function DashboardShell({
 
         <nav
           className="min-h-0 flex-1 overflow-y-auto px-3 py-4"
-          aria-label={portal === 'gov' ? t('nav.gov') : t('nav.vendor')}
+          aria-label={portal === 'gov' ? t('nav.gov') : portal === 'contractor' ? t('nav.contractor') : t('nav.vendor')}
         >
           <ul className="space-y-1">
             {navItems.map((item) => (
@@ -174,7 +203,7 @@ export function DashboardShell({
                   className={({ isActive }) =>
                     `dash-nav-link flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
                       isActive
-                        ? 'bg-white/15 font-semibold text-white shadow-sm'
+                        ? 'bg-white/15 font-semibold text-white shadow-sm ring-1 ring-white/10'
                         : 'text-white/75 hover:bg-white/10 hover:text-white'
                     }`
                   }
@@ -192,45 +221,109 @@ export function DashboardShell({
           </ul>
         </nav>
 
+        <div className="shrink-0 space-y-1 border-t border-white/10 px-3 py-3">
+          {notificationHref && (
+            <Link
+              to={notificationHref}
+              className="flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/75 hover:bg-white/10 hover:text-white"
+            >
+              <span className="relative grid h-8 w-8 place-items-center rounded-lg bg-white/10">
+                <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
+                {notificationCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold">
+                    {notificationCount > 99 ? '99+' : notificationCount}
+                  </span>
+                )}
+              </span>
+              {t('nav.notifications')}
+            </Link>
+          )}
+          <button
+            type="button"
+            className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/75 hover:bg-white/10 hover:text-white"
+          >
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10">
+              <Settings className="h-[18px] w-[18px]" strokeWidth={2} />
+            </span>
+            {t('dashboard.settings')}
+          </button>
+          <a
+            href="mailto:support@eworks.tn.gov.in"
+            className="flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/75 hover:bg-white/10 hover:text-white"
+          >
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10">
+              <HelpCircle className="h-[18px] w-[18px]" strokeWidth={2} />
+            </span>
+            {t('dashboard.helpSupport')}
+          </a>
+        </div>
+
         <div className="shrink-0 border-t border-white/10 p-4">
-          <div className="rounded-xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
-            <p className="truncate text-sm font-semibold text-white">{userName ?? '—'}</p>
-            {roleLabel && <p className="mt-0.5 truncate text-xs text-white/70">{roleLabel}</p>}
-            {orgScope && (
-              <p className="mt-2 truncate text-[10px] font-medium uppercase tracking-wide text-white/55">
-                {orgScope}
-              </p>
-            )}
+          <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent text-sm font-bold text-brand-dark">
+              {initials}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-white">{userName ?? '—'}</p>
+              {roleLabel && <p className="mt-0.5 truncate text-xs text-white/70">{roleLabel}</p>}
+              {orgScope && (
+                <p className="mt-1 truncate text-[10px] text-white/55">
+                  {districtId ?? orgScope}
+                </p>
+              )}
+              <p className="mt-1 text-[10px] text-white/45">{t('dashboard.lastLogin')}</p>
+            </div>
           </div>
         </div>
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:ml-[17.5rem]">
         <header className="z-30 shrink-0 border-b border-line bg-surface/95 backdrop-blur-md">
-          <div className="flex min-h-[3.75rem] items-center gap-2 px-4 sm:gap-3 sm:px-6">
+          <div className="flex min-h-[3.75rem] flex-wrap items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:px-8">
             <button
               type="button"
-              className="grid min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-line bg-surface-2 text-lg lg:hidden"
+              className="grid min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-line bg-surface-2 lg:hidden"
               aria-label={t('dashboard.openMenu')}
               onClick={() => setSidebarOpen(true)}
             >
               <Menu className="h-5 w-5" strokeWidth={2} />
             </button>
 
-            <div className="hidden min-w-0 flex-1 sm:block">
+            <nav aria-label="Breadcrumb" className="hidden shrink-0 items-center gap-1.5 text-sm sm:flex">
+              <Link to={homePath} className="font-semibold text-brand hover:underline">
+                {t('app.brand')}
+              </Link>
+              <span className="text-ink-3" aria-hidden>
+                /
+              </span>
+              <span className="font-medium text-ink-2">{pageLabel}</span>
+            </nav>
+
+            <div className="order-last w-full min-w-0 flex-1 sm:order-none sm:mx-4 sm:max-w-xl lg:mx-8">
               <label className="sr-only" htmlFor="dash-search">
                 {t('dashboard.searchPlaceholder')}
               </label>
-              <input
-                id="dash-search"
-                type="search"
-                placeholder={t('dashboard.searchPlaceholder')}
-                className="gov-input max-w-md bg-surface-2"
-                disabled
-              />
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3"
+                  strokeWidth={2}
+                  aria-hidden
+                />
+                <input
+                  id="dash-search"
+                  type="search"
+                  placeholder={t('dashboard.searchPlaceholderFull')}
+                  className="gov-input w-full bg-surface-2 pl-10"
+                />
+              </div>
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+              <span className="hidden items-center gap-1.5 rounded-lg border border-line bg-brand-tint px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand lg:inline-flex">
+                <Building2 className="h-3.5 w-3.5" strokeWidth={2.5} />
+                {portalBadge}
+              </span>
+
               <select
                 aria-label={t('dev.language')}
                 value={lang}
@@ -248,7 +341,7 @@ export function DashboardShell({
                 type="button"
                 aria-label={t('shell.toggleTheme')}
                 onClick={onToggleTheme}
-                className="grid min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-line bg-surface-2 text-lg hover:bg-surface-3"
+                className="grid min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-line bg-surface-2 hover:bg-surface-3"
               >
                 {theme === 'dark' ? (
                   <Sun className="h-5 w-5" strokeWidth={2} />
@@ -272,18 +365,27 @@ export function DashboardShell({
                 </Link>
               )}
 
-              <DashboardUserMenu name={userName} roleLabel={roleLabel} onSignOut={onSignOut} />
+              <a
+                href="mailto:support@eworks.tn.gov.in"
+                aria-label={t('dashboard.helpSupport')}
+                className="hidden min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-line bg-surface-2 hover:bg-surface-3 sm:grid"
+              >
+                <HelpCircle className="h-5 w-5" strokeWidth={2} />
+              </a>
+
+              <DashboardUserMenu
+                name={userName}
+                roleLabel={roleLabel}
+                onSignOut={onSignOut}
+                compact={isTa}
+              />
             </div>
           </div>
-          {orgScope && (
-            <div className="border-t border-line bg-brand-tint px-4 py-1.5 text-[11px] font-medium text-brand sm:px-6">
-              {isTa ? t('shell.orgScope') : 'Scope'}: {orgScope}
-            </div>
-          )}
         </header>
 
-        <div id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">
-          {children}
+        <div id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+          {footer}
         </div>
       </div>
     </div>

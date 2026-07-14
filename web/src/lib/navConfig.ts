@@ -19,6 +19,7 @@ const GOV_ALL: NavItem[] = [
   { to: '/gov/planner', labelKey: 'gov.planned.planner', requiresPermission: ['order.float', 'order.read'] },
   { to: '/gov/orders', labelKey: 'govOrders.nav', requiresPermission: 'order.read' },
   { to: '/gov/vendors', labelKey: 'govVendors.nav', requiresPermission: ['vendor.read', 'vendor.approve'] },
+  { to: '/gov/officers', labelKey: 'officers.nav', requiresPermission: 'user.read' },
   { to: '/gov/quality', labelKey: 'quality.nav', requiresPermission: ['result.verify', 'order.read'] },
   { to: '/gov/ratings', labelKey: 'ratings.nav', requiresPermission: 'vendor.read' },
   { to: '/gov/analytics', labelKey: 'analytics.nav', requiresPermission: 'order.read' },
@@ -37,6 +38,11 @@ const VENDOR_OWNER: NavItem[] = [
 const FIELD_TECH: NavItem[] = [
   { to: '/vendor/jobs', labelKey: 'nav.jobs', end: true },
   { to: '/vendor/notifications', labelKey: 'nav.notifications' },
+];
+
+const CONTRACTOR_NAV: NavItem[] = [
+  { to: '/contractor', labelKey: 'contractor.navContracts', end: true },
+  { to: '/contractor/registration', labelKey: 'contractor.navRegistration' },
 ];
 
 export const VENDOR_MOBILE_NAV: NavItem[] = [
@@ -67,6 +73,10 @@ export function vendorNavForSession(session: Session | undefined): NavItem[] {
     return FIELD_TECH;
   }
   return VENDOR_OWNER;
+}
+
+export function contractorNavForSession(_session: Session | undefined): NavItem[] {
+  return CONTRACTOR_NAV;
 }
 
 export function vendorMobileNavForSession(session: Session | undefined): NavItem[] {
