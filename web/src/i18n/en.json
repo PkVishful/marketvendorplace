@@ -480,6 +480,9 @@
     "signIn": "Sign in",
     "verifying": "Verifying…",
     "devOtpHint": "Dev: OTP 123456 · Gov MFA 654321 (e.g. 9000000002 district officer)",
+    "demoModeBanner": "Demo mode —",
+    "demoOtpIs": "your OTP is",
+    "demoMfaIs": "MFA code",
     "sendFailed": "Could not send OTP.",
     "verifyFailed": "Sign-in failed — check OTP and MFA.",
     "noPortal": "Account has no portal role."

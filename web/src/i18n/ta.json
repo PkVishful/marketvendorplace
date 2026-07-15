@@ -480,6 +480,9 @@
     "signIn": "Sign in",
     "verifying": "Verifying…",
     "devOtpHint": "Dev: OTP 123456 · MFA 654321",
+    "demoModeBanner": "டெமோ முறை —",
+    "demoOtpIs": "உங்கள் OTP",
+    "demoMfaIs": "MFA குறியீடு",
     "sendFailed": "OTP send failed.",
     "verifyFailed": "Sign-in failed.",
     "noPortal": "No portal role."

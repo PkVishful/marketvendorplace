@@ -48,7 +48,14 @@ export function useSignOut() {
 export function useOtpSend() {
   return useMutation({
     mutationFn: (phone: string) =>
-      apiClient.post<{ sent: boolean; maskedPhone: string; requiresMfa: boolean }>(
+      apiClient.post<{
+        sent: boolean;
+        maskedPhone: string;
+        requiresMfa: boolean;
+        /** Present only on demo builds (DEMO_MODE=true, never in production). */
+        demoOtp?: string;
+        demoMfa?: string;
+      }>(
         '/api/auth/otp/send',
         { phone },
       ),

@@ -58,6 +58,15 @@ describe('loadConfig', () => {
     expect(loadConfig({ ...prodBase, MFA_ENABLED: '0' }).mfaEnabled).toBe(true);
   });
 
+  it('demo mode is off by default and opt-in in dev', () => {
+    expect(loadConfig({}).demoMode).toBe(false);
+    expect(loadConfig({ DEMO_MODE: 'true' }).demoMode).toBe(true);
+  });
+
+  it('demo mode can NEVER be enabled in production', () => {
+    expect(loadConfig({ ...prodBase, DEMO_MODE: 'true' }).demoMode).toBe(false);
+  });
+
   it('exposes sessionSecret and a frozen msg91 block', () => {
     const c = loadConfig({ ...prodBase, MSG91_AUTH_KEY: 'k', MSG91_TEMPLATE_ID: 't' });
     expect(c.sessionSecret).toBe('s'.repeat(32));
