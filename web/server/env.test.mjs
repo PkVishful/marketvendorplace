@@ -65,6 +65,8 @@ describe('loadConfig', () => {
 
   it('demo mode can NEVER be enabled in production', () => {
     expect(loadConfig({ ...prodBase, DEMO_MODE: 'true' }).demoMode).toBe(false);
+    // NODE_ENV=production alone (even without EWORKS_ENV) also forces it off.
+    expect(loadConfig({ NODE_ENV: 'production', DEMO_MODE: 'true' }).demoMode).toBe(false);
   });
 
   it('exposes sessionSecret and a frozen msg91 block', () => {

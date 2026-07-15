@@ -46,9 +46,9 @@ export function loadConfig(rawEnv = process.env) {
     // including government roles. Must be back on (unset or 'true') for real users.
     mfaEnabled: rawEnv.MFA_ENABLED !== 'false',
     // Demo mode returns the OTP code in the send response so the sign-in page
-    // can display it. The !isProd guard is the security boundary: DEMO_MODE=true
-    // is ignored whenever EWORKS_ENV=production, so codes can never reach the
-    // browser on the live domain.
-    demoMode: !isProd && rawEnv.DEMO_MODE === 'true',
+    // can display it. The guard is the security boundary: DEMO_MODE=true is
+    // ignored whenever EWORKS_ENV=production OR NODE_ENV=production, so codes
+    // can never reach the browser on the live domain.
+    demoMode: !isProd && rawEnv.NODE_ENV !== 'production' && rawEnv.DEMO_MODE === 'true',
   });
 }
