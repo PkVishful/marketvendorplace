@@ -107,6 +107,22 @@ describe('otp engine', () => {
     expect(JSON.stringify(r)).not.toContain(p.sent[0].code);
   });
 
+  it('DEMO rejects the fixed dev code and wrong codes; only the generated code passes', async () => {
+    const demoCfg = loadConfig({ DEMO_MODE: 'true' });
+    const p = captureProvider();
+    const issued = await issueChallenge({ phone: '9876543210', userId: 'u1', config: demoCfg, provider: p });
+    // the universal skeleton code must NOT work on a demo build
+    expect(verifyChallenge({ phone: '9876543210', code: '123456', config: demoCfg }).ok).toBe(false);
+    expect(verifyChallenge({ phone: '9876543210', code: '654321', purpose: 'mfa', config: demoCfg }).ok).toBe(false);
+    // nor any other wrong code
+    expect(verifyChallenge({ phone: '9876543210', code: '000000', config: demoCfg }).ok).toBe(false);
+    // only the actual generated code (the one shown in the banner) passes
+    expect(issued.demoCode).toBe(p.sent[0].code);
+    const r = verifyChallenge({ phone: '9876543210', code: issued.demoCode, config: demoCfg });
+    expect(r.ok).toBe(true);
+    expect(r.challenge.userId).toBe('u1');
+  });
+
   it('DEV accepts the fixed dev code (local flow unchanged)', async () => {
     const p = captureProvider();
     await issueChallenge({ phone: '9876543210', userId: 'u1', config: devCfg, provider: p });

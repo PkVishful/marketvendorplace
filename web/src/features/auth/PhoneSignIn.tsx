@@ -92,7 +92,7 @@ export function PhoneSignIn({
         <button type="submit" disabled={busy} className="gov-btn-primary w-full !min-h-[48px]">
           {send.isPending ? t('auth.sending') : t('auth.sendOtp')}
         </button>
-        <p className="text-xs text-ink-3">{t('auth.devOtpHint')}</p>
+        {import.meta.env.DEV && <p className="text-xs text-ink-3">{t('auth.devOtpHint')}</p>}
       </form>
     );
   }
