@@ -1,0 +1,69 @@
+# Apply supabase/migrations/*.sql to the production marketvendorplace database.
+#
+# MANUAL TRIGGER ONLY (workflow_dispatch). Schema changes are never applied
+# automatically on push — that rule is deliberate; do not add a push trigger.
+#
+# Applies migrations in filename order, tracked in a schema_migrations table
+# so re-runs are idempotent (already-applied files are skipped). Each file
+# runs under ON_ERROR_STOP: the first failure aborts before recording it.
+#
+# Required repository secrets: VULTR_HOST, VULTR_USER, VULTR_SSH_KEY
+# (same deploy-only key as deploy.yml). No credential in this file.
+
+name: migrate (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "migrate-production" to confirm'
+        required: true
+      db_container:
+        description: 'Postgres container name on the server'
+        required: true
+        default: supabase-marketplace-db
+
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse without explicit confirmation
+        if: ${{ github.event.inputs.confirm != 'migrate-production' }}
+        run: |
+          echo 'Confirmation phrase mismatch — refusing to run.' >&2
+          exit 1
+
+      - name: Apply pending migrations on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VULTR_HOST }}
+          username: ${{ secrets.VULTR_USER }}
+          key: ${{ secrets.VULTR_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            DB='${{ github.event.inputs.db_container }}'
+            cd /opt/marketplace
+            git pull --ff-only
+            docker exec -i "$DB" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
+              'create table if not exists public.schema_migrations (filename text primary key, applied_at timestamptz not null default now());'
+            for f in supabase/migrations/*.sql; do
+              name=$(basename "$f")
+              done=$(docker exec -i "$DB" psql -U postgres -d postgres -tAc \
+                "select 1 from public.schema_migrations where filename = '$name'")
+              if [ "$done" = "1" ]; then
+                echo "SKIP  $name (already applied)"
+                continue
+              fi
+              echo "APPLY $name"
+              docker exec -i "$DB" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -1 < "$f"
+              docker exec -i "$DB" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
+                "insert into public.schema_migrations (filename) values ('$name');"
+            done
+            echo '--- applied migrations ---'
+            docker exec -i "$DB" psql -U postgres -d postgres -tAc \
+              'select filename from public.schema_migrations order by filename;'

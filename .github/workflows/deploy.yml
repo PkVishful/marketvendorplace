@@ -1,0 +1,72 @@
+# Auto-deploy marketvendorplace to the Vultr box on every push to master.
+#
+# Build happens HERE in CI — never on the server (the box has already
+# OOM-killed a Docker build). Only the built web/dist is shipped.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   VULTR_HOST      139.84.209.18
+#   VULTR_USER      root   (owns /opt/marketplace and runs docker; the 'deploy'
+#                           user is deliberately NOT in the docker group)
+#   VULTR_SSH_KEY   private key of the DEPLOY-ONLY keypair generated on the
+#                   server at /root/marketplace-ci-key (never a personal key)
+# No credential may ever appear in this file.
+
+name: deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Server security tests (gate)
+        working-directory: web
+        run: npm test -- server/
+
+      - name: Build frontend (CI only — never on the server)
+        working-directory: web
+        run: npm run build
+
+      - name: Ship dist to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VULTR_HOST }}
+          username: ${{ secrets.VULTR_USER }}
+          key: ${{ secrets.VULTR_SSH_KEY }}
+          source: web/dist/*
+          target: /opt/marketplace/dist
+          strip_components: 2
+          rm: true
+
+      - name: Update repo on server and restart BFF only
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VULTR_HOST }}
+          username: ${{ secrets.VULTR_USER }}
+          key: ${{ secrets.VULTR_SSH_KEY }}
+          script_stop: true
+          # Restart ONLY the marketplace BFF — never other apps' containers.
+          script: |
+            cd /opt/marketplace
+            git pull --ff-only
+            docker restart marketplace-bff
+            docker ps --filter name=marketplace-bff --format '{{.Names}} {{.Status}}'
