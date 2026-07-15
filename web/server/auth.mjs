@@ -81,7 +81,13 @@ export async function issueChallenge({
     expiresAt: Date.now() + config.otpTtlMs,
     attempts: 0,
   });
-  return { maskedPhone: maskPhone(normalized), requiresMfa };
+  return {
+    maskedPhone: maskPhone(normalized),
+    requiresMfa,
+    // Demo builds only (config.demoMode is hard-false in production): expose
+    // the plaintext code so the UI can display it on screen.
+    ...(config.demoMode ? { demoCode: code } : {}),
+  };
 }
 
 export function verifyChallenge({ phone, code, purpose = 'otp', config }) {

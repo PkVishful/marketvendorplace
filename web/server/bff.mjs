@@ -238,10 +238,17 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
       const requiresMfa = config.mfaEnabled && await userRequiresMfa(pool, userId);
       const challenge = await issueChallenge({ phone, userId, requiresMfa, purpose: 'otp', config, provider });
       if (!challenge) return res.status(400).json({ error: 'invalid_phone' });
+      const { demoCode, ...sendResult } = challenge;
+      let demoMfa;
       if (requiresMfa) {
-        await issueChallenge({ phone, userId, requiresMfa, purpose: 'mfa', config, provider });
+        const mfaChallenge = await issueChallenge({ phone, userId, requiresMfa, purpose: 'mfa', config, provider });
+        demoMfa = mfaChallenge?.demoCode;
       }
-      res.json({ sent: true, ...challenge });
+      res.json({
+        sent: true,
+        ...sendResult,
+        ...(config.demoMode ? { demoOtp: demoCode, ...(demoMfa ? { demoMfa } : {}) } : {}),
+      });
     } catch (err) {
       res.status(500).json({ error: 'otp_send_failed', detail: err.message });
     }
@@ -2338,6 +2345,9 @@ if (isMain) {
   }
   if (config.isProd && !config.mfaEnabled) {
     console.warn('[bff] WARNING: MFA_ENABLED=false in production — government roles log in with OTP only. Remove MFA_ENABLED=false before real users.');
+  }
+  if (process.env.DEMO_MODE === 'true' && !config.demoMode) {
+    console.warn('[bff] DEMO_MODE=true ignored: demo mode is never allowed in production.');
   }
   const app = createApp(config);
   app.listen(config.port, () => console.log(`BFF (${config.env}) listening on http://127.0.0.1:${config.port}`));

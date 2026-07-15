@@ -24,6 +24,8 @@ export function PhoneSignIn({
   const [mfa, setMfa] = useState('');
   const [requiresMfa, setRequiresMfa] = useState(false);
   const [maskedPhone, setMaskedPhone] = useState('');
+  const [demoOtp, setDemoOtp] = useState<string | null>(null);
+  const [demoMfa, setDemoMfa] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isPanel = variant === 'panel';
@@ -39,6 +41,8 @@ export function PhoneSignIn({
       const res = await send.mutateAsync(phone);
       setRequiresMfa(res.requiresMfa);
       setMaskedPhone(res.maskedPhone);
+      setDemoOtp(res.demoOtp ?? null);
+      setDemoMfa(res.demoMfa ?? null);
       setStep('otp');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.sendFailed'));
@@ -99,6 +103,19 @@ export function PhoneSignIn({
       <p className={isPanel ? 'text-sm text-slate' : helpClass}>
         {t('auth.otpSent', { phone: maskedPhone || phone })}
       </p>
+      {demoOtp && (
+        <p className="rounded-xl border border-warning/40 bg-warning-bg px-3 py-2 text-sm text-ink">
+          <strong>{t('auth.demoModeBanner')}</strong> {t('auth.demoOtpIs')}{' '}
+          <span className="font-mono text-base font-bold tracking-[0.2em]">{demoOtp}</span>
+          {demoMfa && (
+            <>
+              {' · '}
+              {t('auth.demoMfaIs')}{' '}
+              <span className="font-mono text-base font-bold tracking-[0.2em]">{demoMfa}</span>
+            </>
+          )}
+        </p>
+      )}
       <label className="block">
         <span className="gov-label">{t('auth.otpLabel')}</span>
         <input

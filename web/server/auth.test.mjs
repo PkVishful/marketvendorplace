@@ -86,6 +86,27 @@ describe('otp engine', () => {
     expect(verifyChallenge({ phone: '9876543210', code: '123456', config: prodCfg }).ok).toBe(false);
   });
 
+  it('demo mode exposes the delivered code; normal mode never does', async () => {
+    const demoCfg = loadConfig({ DEMO_MODE: 'true' });
+    const p = captureProvider();
+    const demo = await issueChallenge({ phone: '9876543210', userId: 'u1', config: demoCfg, provider: p });
+    expect(demo.demoCode).toBe(p.sent[0].code);
+    const normal = await issueChallenge({ phone: '9876543211', userId: 'u1', config: devCfg, provider: p });
+    expect(normal).not.toHaveProperty('demoCode');
+  });
+
+  it('PRODUCTION challenge never contains a demo code even with DEMO_MODE=true in env', async () => {
+    const prodDemoAttempt = loadConfig({
+      EWORKS_ENV: 'production', DEMO_MODE: 'true', OTP_PEPPER: 'pepper-'.repeat(4),
+      CORS_ORIGIN: 'https://getlegal.anvastech.in', SESSION_SECRET: 's'.repeat(32),
+      EWORKS_USE_LOCAL_PG: '1',
+    });
+    const p = captureProvider();
+    const r = await issueChallenge({ phone: '9876543210', userId: 'u1', config: prodDemoAttempt, provider: p });
+    expect(r).not.toHaveProperty('demoCode');
+    expect(JSON.stringify(r)).not.toContain(p.sent[0].code);
+  });
+
   it('DEV accepts the fixed dev code (local flow unchanged)', async () => {
     const p = captureProvider();
     await issueChallenge({ phone: '9876543210', userId: 'u1', config: devCfg, provider: p });

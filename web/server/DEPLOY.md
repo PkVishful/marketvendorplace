@@ -35,6 +35,10 @@ Before accepting real users, set the following:
 
 3. **Remove `MFA_ENABLED=false`** if it was set during testing. The flag skips the MFA step for everyone, including government roles. Unset (or `true`) restores role-based MFA. The BFF logs a startup warning while it is disabled in production.
 
+## Demo mode (DEMO_MODE=true)
+
+`DEMO_MODE=true` makes the sign-in page display the OTP on screen — for private demo builds only. It is **hard-blocked in production**: whenever `EWORKS_ENV=production`, the flag is ignored (the BFF logs "DEMO_MODE=true ignored") and codes never reach the browser. Do not rely on remembering to unset it — the code path itself refuses — but keep it out of production env files anyway.
+
 ## Systemd Alternative
 
 If you prefer not to use pm2, run the BFF under systemd with an environment file:
