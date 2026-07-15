@@ -64,9 +64,12 @@ jobs:
           username: ${{ secrets.VULTR_USER }}
           key: ${{ secrets.VULTR_SSH_KEY }}
           script_stop: true
-          # Restart ONLY the marketplace BFF — never other apps' containers.
+          # Restart ONLY marketplace containers — never other apps'.
+          # The nginx restart is required: scp-action's rm:true replaces the
+          # dist directory itself, which orphans the container's bind mount
+          # (nginx would serve from the deleted inode and 500 on every route).
           script: |
             cd /opt/marketplace
             git pull --ff-only
-            docker restart marketplace-bff
-            docker ps --filter name=marketplace-bff --format '{{.Names}} {{.Status}}'
+            docker restart marketplace-bff marketplace
+            docker ps --filter name=marketplace --format '{{.Names}} {{.Status}}'
