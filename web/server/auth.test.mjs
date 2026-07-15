@@ -61,6 +61,25 @@ describe('otp engine', () => {
     vi.useRealTimers();
   });
 
+  it('a failed send leaves an existing delivered challenge intact', async () => {
+    const p = captureProvider();
+    await issueChallenge({ phone: '9876543210', userId: 'u1', config: prodCfg, provider: p });
+    const failing = { async send() { throw new Error('provider down'); } };
+    await expect(issueChallenge({ phone: '9876543210', userId: 'u1', config: prodCfg, provider: failing }))
+      .rejects.toThrow('provider down');
+    // the first (actually delivered) code must still verify
+    const r = verifyChallenge({ phone: '9876543210', code: p.sent[0].code, config: prodCfg });
+    expect(r.ok).toBe(true);
+  });
+
+  it('a failed send stores no challenge at all', async () => {
+    const failing = { async send() { throw new Error('provider down'); } };
+    await expect(issueChallenge({ phone: '9876543210', userId: 'u1', config: prodCfg, provider: failing }))
+      .rejects.toThrow('provider down');
+    const r = verifyChallenge({ phone: '9876543210', code: '000000', config: prodCfg });
+    expect(r).toEqual({ ok: false, reason: 'no_challenge' });
+  });
+
   it('PRODUCTION rejects the fixed dev code', async () => {
     const p = captureProvider();
     await issueChallenge({ phone: '9876543210', userId: 'u1', config: prodCfg, provider: p });

@@ -71,6 +71,9 @@ export async function issueChallenge({
   const normalized = normalizePhone(phone);
   if (!normalized) return null;
   const code = generateOtpCode();
+  // Deliver first, store second: a failed send must not consume the caller's
+  // budget or clobber a previously delivered, still-valid challenge.
+  await provider.send({ phone: normalized, code, purpose });
   store.set(key(purpose, normalized), {
     userId,
     requiresMfa,
@@ -78,7 +81,6 @@ export async function issueChallenge({
     expiresAt: Date.now() + config.otpTtlMs,
     attempts: 0,
   });
-  await provider.send({ phone: normalized, code, purpose });
   return { maskedPhone: maskPhone(normalized), requiresMfa };
 }
 
