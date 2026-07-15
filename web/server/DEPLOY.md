@@ -31,16 +31,7 @@ Before accepting real users, set the following:
    - **MSG91_TEMPLATE_ID** — A TRAI-approved DLT template containing a variable (`var1`) for the OTP code
    - **MSG91_SENDER_ID** — Optional sender ID (usually embedded in the DLT template)
 
-   The console sink (`OTP_PROVIDER=console`) logs verification codes to stdout and is **staging-only**. Production must use `OTP_PROVIDER=msg91` (or another real SMS adapter).
-
-## OTP Provider — Staging Only
-
-The default `OTP_PROVIDER=console` logs verification codes to stdout. This is **staging only**. Before accepting real users:
-
-1. Install a real SMS adapter (e.g., Twilio, AWS SNS)
-2. Update `OTP_PROVIDER=` to the adapter name
-3. Configure the corresponding secret env vars (e.g., `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`)
-4. Test end-to-end with a real phone number
+   The default console sink (`OTP_PROVIDER=console`) logs verification codes to stdout and is **staging-only**. Production must use `OTP_PROVIDER=msg91` (or another real SMS adapter). After switching, test the OTP flow end-to-end with a real phone number.
 
 ## Systemd Alternative
 
