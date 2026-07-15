@@ -96,8 +96,10 @@ export function verifyChallenge({ phone, code, purpose = 'otp', config }) {
   const k = key(purpose, normalized);
   const hit = store.get(k);
 
-  // Dev convenience only: the fixed codes never reach this branch in production.
-  if (config.isDev) {
+  // Dev convenience only: the fixed codes never reach this branch in production,
+  // and demo builds exclude them too — a demo must only accept the randomly
+  // generated code it displays, never a universal skeleton code.
+  if (config.isDev && !config.demoMode) {
     const fixed = purpose === 'mfa' ? DEV_MFA : DEV_OTP;
     if (String(code ?? '').replace(/\D/g, '') === fixed) {
       store.delete(k);
