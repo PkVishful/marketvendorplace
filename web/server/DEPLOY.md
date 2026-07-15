@@ -33,6 +33,8 @@ Before accepting real users, set the following:
 
    The default console sink (`OTP_PROVIDER=console`) logs verification codes to stdout and is **staging-only**. Production must use `OTP_PROVIDER=msg91` (or another real SMS adapter). After switching, test the OTP flow end-to-end with a real phone number.
 
+3. **Remove `MFA_ENABLED=false`** if it was set during testing. The flag skips the MFA step for everyone, including government roles. Unset (or `true`) restores role-based MFA. The BFF logs a startup warning while it is disabled in production.
+
 ## Systemd Alternative
 
 If you prefer not to use pm2, run the BFF under systemd with an environment file:

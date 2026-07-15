@@ -235,7 +235,7 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     try {
       const userId = await findUserIdByPhone(pool, phone);
       if (!userId) return res.status(404).json({ error: 'unknown_phone' });
-      const requiresMfa = await userRequiresMfa(pool, userId);
+      const requiresMfa = config.mfaEnabled && await userRequiresMfa(pool, userId);
       const challenge = await issueChallenge({ phone, userId, requiresMfa, purpose: 'otp', config, provider });
       if (!challenge) return res.status(400).json({ error: 'invalid_phone' });
       if (requiresMfa) {
@@ -2335,6 +2335,9 @@ if (isMain) {
   const config = loadConfig();
   if (config.isProd && config.provider === 'console') {
     console.warn('[bff] WARNING: OTP_PROVIDER=console in production — codes are only logged, not delivered. Set OTP_PROVIDER=msg91 before real users.');
+  }
+  if (config.isProd && !config.mfaEnabled) {
+    console.warn('[bff] WARNING: MFA_ENABLED=false in production — government roles log in with OTP only. Remove MFA_ENABLED=false before real users.');
   }
   const app = createApp(config);
   app.listen(config.port, () => console.log(`BFF (${config.env}) listening on http://127.0.0.1:${config.port}`));

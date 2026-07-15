@@ -47,6 +47,17 @@ describe('loadConfig', () => {
     expect(() => loadConfig(rest)).toThrow(/SESSION_SECRET/);
   });
 
+  it('enables MFA by default', () => {
+    expect(loadConfig({}).mfaEnabled).toBe(true);
+    expect(loadConfig(prodBase).mfaEnabled).toBe(true);
+    expect(loadConfig({ ...prodBase, MFA_ENABLED: 'true' }).mfaEnabled).toBe(true);
+  });
+
+  it('disables MFA only on the exact string MFA_ENABLED=false', () => {
+    expect(loadConfig({ ...prodBase, MFA_ENABLED: 'false' }).mfaEnabled).toBe(false);
+    expect(loadConfig({ ...prodBase, MFA_ENABLED: '0' }).mfaEnabled).toBe(true);
+  });
+
   it('exposes sessionSecret and a frozen msg91 block', () => {
     const c = loadConfig({ ...prodBase, MSG91_AUTH_KEY: 'k', MSG91_TEMPLATE_ID: 't' });
     expect(c.sessionSecret).toBe('s'.repeat(32));
