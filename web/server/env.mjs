@@ -42,5 +42,8 @@ export function loadConfig(rawEnv = process.env) {
       maxPerIp: Number(rawEnv.OTP_RL_MAX_IP || 20),
     }),
     provider: rawEnv.OTP_PROVIDER || 'console',
+    // Testing escape hatch: MFA_ENABLED=false skips the MFA step for everyone,
+    // including government roles. Must be back on (unset or 'true') for real users.
+    mfaEnabled: rawEnv.MFA_ENABLED !== 'false',
   });
 }
