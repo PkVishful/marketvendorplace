@@ -414,7 +414,11 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
              st_x(o.site::geometry) as lng,
              ou.name             as "orgName"
            from eworks.test_orders o
-           join eworks.org_units ou on ou.id = o.org_unit_id
+           -- LEFT so a service-radius-eligible vendor in another district can
+           -- still open the tender: org_units_read scopes the unit's name to the
+           -- owning hierarchy, but the order itself is theirs to bid on. An inner
+           -- join would drop the row and 404 the tender for cross-district labs.
+           left join eworks.org_units ou on ou.id = o.org_unit_id
           where o.id = $1`,
           [req.params.id],
         );
