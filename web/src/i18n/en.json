@@ -391,6 +391,7 @@
     "subtitle": "Results, certificate verification, and treasury release — payment is never gated on pass/fail.",
     "noJob": "No field job linked to this award yet.",
     "noResults": "No test results recorded yet.",
+    "sitePhoto": "Site check-in photo",
     "pass": "Pass",
     "fail": "Fail",
     "provisional": "Provisional",

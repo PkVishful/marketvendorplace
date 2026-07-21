@@ -88,6 +88,25 @@ export function GovOrderFulfillment({
         )}
       </div>
 
+      <div className="gov-card p-5">
+        <p className="gov-label">{t('fulfillment.sitePhoto')}</p>
+        <a
+          href={`/api/gov/orders/${orderId}/checkin-photo`}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-block"
+        >
+          <img
+            src={`/api/gov/orders/${orderId}/checkin-photo`}
+            alt={t('fulfillment.sitePhoto')}
+            className="h-32 w-32 rounded-md object-cover"
+            onError={(e) => {
+              (e.currentTarget.parentElement as HTMLElement).style.display = 'none';
+            }}
+          />
+        </a>
+      </div>
+
       {fulfillment.escalations.length > 0 && (
         <div className="gov-card border-l-4 border-l-danger p-5">
           <p className="gov-label text-danger">{t('fulfillment.escalations')}</p>
