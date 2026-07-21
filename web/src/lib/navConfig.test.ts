@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Session, UserRole } from '@/types/domain';
-import { govNavForSession } from './navConfig';
+import { govNavForSession, vendorMobileNavForSession, vendorNavForSession } from './navConfig';
 
 function role(code: string): UserRole {
   return { code, orgName: 'Coimbatore', orgLevel: 'DISTRICT', orgPath: 'TN.COIMBATORE' };
@@ -41,6 +41,14 @@ describe('govNavForSession (permission-driven)', () => {
     expect(tabs(gov(['order.read']))).not.toContain('/gov/audit');
   });
 
+  it('shows the Test checklist tab to an order.read holder', () => {
+    expect(tabs(gov(['order.read']))).toContain('/gov/checklist');
+  });
+
+  it('hides the Test checklist tab without order.read', () => {
+    expect(tabs(gov([]))).not.toContain('/gov/checklist');
+  });
+
   it('shows the Audit tab for audit.read_all as well as audit.read', () => {
     expect(tabs(gov(['audit.read_all']))).toContain('/gov/audit');
   });
@@ -51,5 +59,29 @@ describe('govNavForSession (permission-driven)', () => {
     expect(t).toContain('/gov/planner'); // order.float
     expect(t).toContain('/gov/quality'); // result.verify/order.read
     expect(t).toContain('/gov/audit'); // audit.read_all
+  });
+});
+
+function vendor(roles: string[]): Session {
+  return { authenticated: true, portal: 'vendor', roles: roles.map(role), permissions: [] };
+}
+
+describe('vendor nav — My Rates', () => {
+  it('shows /vendor/rates to a lab vendor (desktop and mobile nav)', () => {
+    const s = vendor(['LAB_VENDOR']);
+    expect(vendorNavForSession(s).map((n) => n.to)).toContain('/vendor/rates');
+    expect(vendorMobileNavForSession(s).map((n) => n.to)).toContain('/vendor/rates');
+  });
+
+  it('hides /vendor/rates from a field-only technician', () => {
+    const s = vendor(['FIELD_TECHNICIAN']);
+    expect(vendorNavForSession(s).map((n) => n.to)).not.toContain('/vendor/rates');
+    expect(vendorMobileNavForSession(s).map((n) => n.to)).not.toContain('/vendor/rates');
+  });
+});
+
+describe('vendor nav — Tests we do', () => {
+  it('shows /vendor/tests to a lab vendor', () => {
+    expect(vendorNavForSession(vendor(['LAB_VENDOR'])).map((n) => n.to)).toContain('/vendor/tests');
   });
 });

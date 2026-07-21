@@ -11,6 +11,9 @@ import { QualityDashboardPage } from '@/features/gov/QualityDashboardPage';
 import { VendorRatingsPage } from '@/features/gov/VendorRatingsPage';
 import { AuditLogPage } from '@/features/gov/AuditLogPage';
 import { OfficersPage } from '@/features/gov/OfficersPage';
+import { SettingsPage } from '@/features/account/SettingsPage';
+import { GovSettingsPage } from '@/features/account/GovSettingsPage';
+import { HelpSupportPage } from '@/features/account/HelpSupportPage';
 import { EarningsPage } from '@/features/earnings/EarningsPage';
 import { NotificationsPage } from '@/features/notifications/NotificationsPage';
 import { OrdersPage } from '@/features/orders/OrdersPage';
@@ -21,6 +24,9 @@ import { VerifyCertificatePage } from '@/features/public/VerifyCertificatePage';
 import { AnalyticsPage } from '@/features/gov/AnalyticsPage';
 import { VendorDashboard } from '@/features/vendor/VendorDashboard';
 import { OnboardingWizard } from '@/features/kyc/OnboardingWizard';
+import { RatesPage } from '@/features/pricing/RatesPage';
+import { ProjectChecklistPage } from '@/features/gov/ProjectChecklistPage';
+import { ChecklistScreen } from '@/features/catalog/ChecklistScreen';
 import { ContractorLayout } from '@/app/ContractorLayout';
 import { ContractsPage } from '@/features/contractor/ContractsPage';
 import { ContractorRegistration } from '@/features/contractor/ContractorRegistration';
@@ -39,11 +45,15 @@ export function App() {
             <Route index element={<VendorDashboard />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="orders/:id" element={<OrderDetailPage />} />
+            <Route path="rates" element={<RatesPage />} />
+            <Route path="tests" element={<ChecklistScreen variant="vendor" />} />
             <Route path="jobs" element={<JobsPage />} />
             <Route path="jobs/:id" element={<JobDetailPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="earnings" element={<EarningsPage />} />
             <Route path="onboarding" element={<OnboardingWizard />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="help" element={<HelpSupportPage />} />
           </Route>
         </Route>
 
@@ -51,6 +61,8 @@ export function App() {
           <Route path="/contractor" element={<ContractorLayout />}>
             <Route index element={<ContractsPage />} />
             <Route path="registration" element={<ContractorRegistration />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="help" element={<HelpSupportPage />} />
           </Route>
         </Route>
 
@@ -58,6 +70,8 @@ export function App() {
           <Route path="/gov" element={<GovLayout />}>
             <Route index element={<GovHomePage />} />
             <Route path="planner" element={<PlannerPage />} />
+            <Route path="checklist" element={<ChecklistScreen variant="gov" />} />
+            <Route path="projects/:projectId/checklist" element={<ProjectChecklistPage />} />
             <Route path="orders" element={<GovOrdersPage />} />
             <Route path="orders/:id" element={<GovOrderDetailPage />} />
             <Route path="vendors" element={<VendorsPage />} />
@@ -66,6 +80,8 @@ export function App() {
             <Route path="ratings" element={<VendorRatingsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="audit" element={<AuditLogPage />} />
+            <Route path="settings" element={<GovSettingsPage />} />
+            <Route path="help" element={<HelpSupportPage />} />
           </Route>
         </Route>
       </Route>
