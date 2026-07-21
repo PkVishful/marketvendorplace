@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { shapeChecklist, frequencyLabel, domainSlug } from './catalog.mjs';
+import { shapeChecklist, frequencyLabel, domainSlug, deriveReqStatus } from './catalog.mjs';
 
 const row = (o) => ({
   stageCode: 'FOUNDATION', stageName: 'Foundation', sequence: 3,
@@ -58,5 +58,21 @@ describe('shapeChecklist', () => {
     // No stage rule → frequency reads as ONCE, and it is never a repeat.
     expect(out.crossStage[0].frequency).toEqual({ key: 'catalog.freq.ONCE', params: {} });
     expect(out.crossStage[0].repeatsAcrossStages).toBe(false);
+  });
+});
+
+describe('deriveReqStatus', () => {
+  it('maps the lifecycle to the five display states', () => {
+    expect(deriveReqStatus({ ptrStatus: 'PLANNED' })).toBe('PLANNED');
+    expect(deriveReqStatus({ ptrStatus: 'FLOATED', orderStatus: 'FLOATED' })).toBe('ORDERED');
+    expect(deriveReqStatus({ ptrStatus: 'IN_PROGRESS', orderStatus: 'AWARDED' })).toBe('IN_PROGRESS');
+    expect(deriveReqStatus({ ptrStatus: 'COMPLETE', hasCertificate: true })).toBe('CERTIFIED');
+  });
+  it('a failed result outranks in-progress', () => {
+    expect(deriveReqStatus({ ptrStatus: 'IN_PROGRESS', hasFailedResult: true })).toBe('FAILED');
+  });
+  it('certified wins even if an earlier result failed (passing retest)', () => {
+    expect(deriveReqStatus({ ptrStatus: 'COMPLETE', hasCertificate: true, hasFailedResult: true }))
+      .toBe('CERTIFIED');
   });
 });

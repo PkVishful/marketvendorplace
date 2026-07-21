@@ -16,7 +16,7 @@ import { saveKycDocument, readKycDocument } from './kyc-upload.mjs';
 import { saveContractorDocument, readContractorDocument } from './kyc-upload.mjs';
 import { loadConfig } from './env.mjs';
 import { selectProvider } from './otp/provider.mjs';
-import { shapeChecklist } from './catalog.mjs';
+import { shapeChecklist, deriveReqStatus } from './catalog.mjs';
 import {
   corsMiddleware, setSessionCookie, clearSessionCookie, readSessionCookie,
   createRateLimiter, ipKey, phoneKey, redactErrorDetailMiddleware, errorHandler,
@@ -906,6 +906,105 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
         return { stageRows: staged.rows, crossRows: cross.rows };
       });
       res.json(shapeChecklist(stageRows, crossRows));
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
+  app.get('/api/gov/projects/:projectId/checklist', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const data = await withUserSession(userId, async (client) => {
+        // All 9 stages, always — a stage with no requirements still renders as
+        // "not planned yet". Left joins to the order + cert/result trail give
+        // the deep-link ids and the failure signal. RLS on
+        // project_test_requirements enforces order.read-in-scope, so an
+        // out-of-scope officer simply sees zero requirement rows.
+        const q = await client.query(
+          `select
+             cs.code     as "stageCode",
+             cs.name     as "stageName",
+             cs.sequence as "sequence",
+             ptr.id      as "requirementId",
+             tc.code     as "testCode",
+             tc.name     as "testName",
+             ptr.planned_count as "plannedCount",
+             ptr.status  as "ptrStatus",
+             o.id        as "orderId",
+             o.status    as "orderStatus",
+             j.id        as "jobId",
+             (cert.id is not null) as "hasCertificate",
+             exists (select 1 from eworks.test_results tr
+                       where tr.job_id = j.id and tr.passed = false) as "hasFailedResult"
+           from eworks.construction_stage cs
+           left join eworks.project_test_requirements ptr
+             on ptr.stage_id = cs.id and ptr.project_id = $1
+           left join eworks.test_catalog tc on tc.id = ptr.test_id
+           left join eworks.order_items oi on oi.requirement_id = ptr.id
+           left join eworks.test_orders o on o.id = oi.order_id
+           left join eworks.test_jobs j on j.order_id = o.id
+           left join eworks.certificates cert on cert.job_id = j.id
+          order by cs.sequence, tc.name`,
+          [req.params.projectId],
+        );
+
+        // A requirement can fan out to several rows if it was re-floated (a new
+        // order item after a failure). Aggregate the signals across all its rows
+        // so a passing retest (CERTIFIED) is not masked by the earlier FAILED
+        // order, and keep the most-advanced order/job for the deep link.
+        const byStage = new Map();
+        const reqAcc = new Map();
+        for (const r of q.rows) {
+          if (!byStage.has(r.stageCode)) {
+            byStage.set(r.stageCode, {
+              code: r.stageCode, sequence: r.sequence, name: r.stageName,
+              planned: false, rows: [], certifiedCount: 0, totalCount: 0,
+            });
+          }
+          const stage = byStage.get(r.stageCode);
+          if (!r.requirementId) continue; // stage with no requirements yet
+          stage.planned = true;
+
+          let acc = reqAcc.get(r.requirementId);
+          if (!acc) {
+            acc = {
+              stageCode: r.stageCode, requirementId: r.requirementId,
+              testCode: r.testCode, testName: r.testName, plannedCount: r.plannedCount,
+              ptrStatus: r.ptrStatus, hasCertificate: false, hasFailedResult: false,
+              orderStatus: null, orderId: null, jobId: null,
+            };
+            reqAcc.set(r.requirementId, acc);
+          }
+          acc.hasCertificate = acc.hasCertificate || r.hasCertificate;
+          acc.hasFailedResult = acc.hasFailedResult || r.hasFailedResult;
+          // Prefer the row carrying a certificate for the deep link, else the
+          // first order/job we saw.
+          if (r.orderId && (r.hasCertificate || !acc.orderId)) {
+            acc.orderId = r.orderId;
+            acc.orderStatus = r.orderStatus;
+            acc.jobId = r.jobId ?? acc.jobId;
+          }
+        }
+
+        for (const acc of reqAcc.values()) {
+          const stage = byStage.get(acc.stageCode);
+          const status = deriveReqStatus(acc);
+          stage.rows.push({
+            requirementId: acc.requirementId,
+            testCode: acc.testCode,
+            testName: acc.testName,
+            plannedCount: acc.plannedCount,
+            status,
+            orderId: acc.orderId,
+            jobId: acc.jobId,
+          });
+          stage.totalCount += 1;
+          if (status === 'CERTIFIED') stage.certifiedCount += 1;
+        }
+        return { stages: [...byStage.values()] };
+      });
+      res.json(data);
     } catch (err) {
       res.status(500).json({ error: 'query_failed', detail: err.message });
     }

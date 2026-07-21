@@ -82,3 +82,14 @@ export function shapeChecklist(stageRows, crossRows = []) {
 
   return { stages: [...byStage.values()], crossStage };
 }
+
+// Collapses the requirement + its order/cert/result signals into the five
+// display states from the spec. CERTIFIED is terminal-positive (a passing
+// retest supersedes an earlier failure), so it is checked before FAILED.
+export function deriveReqStatus({ ptrStatus, orderStatus, hasCertificate, hasFailedResult }) {
+  if (hasCertificate || ptrStatus === 'COMPLETE') return 'CERTIFIED';
+  if (hasFailedResult) return 'FAILED';
+  if (ptrStatus === 'IN_PROGRESS' || orderStatus === 'AWARDED') return 'IN_PROGRESS';
+  if (ptrStatus === 'FLOATED' || orderStatus === 'FLOATED' || orderStatus === 'REVEALING') return 'ORDERED';
+  return 'PLANNED';
+}
