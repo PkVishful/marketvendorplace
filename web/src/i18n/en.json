@@ -956,7 +956,21 @@
     "waived": "Waived",
     "open": "Open",
     "samples": "{{count}} samples",
-    "due": "due {{date}}"
+    "due": "due {{date}}",
+    "progress": "{{done}} of {{total}} certified",
+    "summary": "{{done}} of {{total}} certified across {{stages}} levels",
+    "notPlanned": "Not planned yet",
+    "planThisLevel": "Plan this level",
+    "viewOrder": "View order",
+    "viewJob": "View job",
+    "retestTrail": "Retest trail",
+    "status": {
+      "PLANNED": "Planned",
+      "ORDERED": "Ordered",
+      "IN_PROGRESS": "In progress",
+      "CERTIFIED": "Certified",
+      "FAILED": "Failed"
+    }
   },
   "catalog": {
     "title": "Test checklist",
