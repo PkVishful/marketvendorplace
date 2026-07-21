@@ -19,13 +19,11 @@ export function domainSlug(domain) {
   return DOMAIN_SLUGS[domain] ?? String(domain ?? '').toLowerCase();
 }
 
-// The two tests that belong to no single build stage — they gate the whole job.
-const CROSS_STAGE_CODES = new Set(['CONCRETE_MIX_DESIGN', 'WATER_QUALITY']);
-
 // frequency_type (+ tiered spec) -> { key, params }. Client renders t(key, params).
+// A cross-stage test carries no stage rule, so a missing type reads as ONCE.
 export function frequencyLabel(frequencyType, frequencySpec = {}) {
   const spec = frequencySpec || {};
-  if (frequencyType === 'ONCE') {
+  if (!frequencyType || frequencyType === 'ONCE') {
     return { key: 'catalog.freq.ONCE', params: {} };
   }
   if (frequencyType === 'PER_VOLUME' && Array.isArray(spec.tiers)) {
@@ -51,10 +49,17 @@ function toTest(row, repeatCounts) {
   };
 }
 
-export function shapeChecklist(rows) {
+/**
+ * Build the checklist payload.
+ *   stageRows — one row per active state-wide stage rule, ordered by
+ *               cs.sequence then tc.name.
+ *   crossRows — catalog tests that map to no stage at all (concrete mix design,
+ *               water quality); rendered in their own "Any level" group.
+ */
+export function shapeChecklist(stageRows, crossRows = []) {
   // How many distinct stages each test appears under (drives "repeats").
   const repeatCounts = new Map();
-  for (const r of rows) {
+  for (const r of stageRows) {
     if (!repeatCounts.has(r.testCode)) repeatCounts.set(r.testCode, new Set());
     repeatCounts.get(r.testCode).add(r.stageCode);
   }
@@ -64,22 +69,16 @@ export function shapeChecklist(rows) {
   // than relying on row adjacency) keeps a stage's tests together even if the
   // rows arrive interleaved.
   const byStage = new Map();
-  const crossStage = [];
-  const seenCross = new Set();
-
-  for (const r of rows) {
-    if (CROSS_STAGE_CODES.has(r.testCode)) {
-      if (!seenCross.has(r.testCode)) {
-        seenCross.add(r.testCode);
-        crossStage.push(toTest(r, repeatCounts));
-      }
-      continue;
-    }
+  for (const r of stageRows) {
     if (!byStage.has(r.stageCode)) {
       byStage.set(r.stageCode, { code: r.stageCode, sequence: r.sequence, name: r.stageName, tests: [] });
     }
     byStage.get(r.stageCode).tests.push(toTest(r, repeatCounts));
   }
+
+  // Cross-stage tests are single by definition — never marked as repeats.
+  const emptyRepeats = new Map();
+  const crossStage = crossRows.map((r) => toTest(r, emptyRepeats));
 
   return { stages: [...byStage.values()], crossStage };
 }

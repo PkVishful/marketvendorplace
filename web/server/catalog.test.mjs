@@ -47,12 +47,16 @@ describe('shapeChecklist', () => {
     expect(bearing.repeatsAcrossStages).toBe(false);
   });
 
-  it('pulls cross-stage tests into their own group', () => {
-    const out = shapeChecklist([
-      row({ testCode: 'CONCRETE_MIX_DESIGN', testName: 'Mix design' }),
-      row({ testCode: 'BEARING', testName: 'Bearing' }),
-    ]);
-    expect(out.crossStage.map((t) => t.code)).toEqual(['CONCRETE_MIX_DESIGN']);
+  it('renders cross-stage rows in their own group, never in stages', () => {
+    const out = shapeChecklist(
+      [row({ testCode: 'BEARING', testName: 'Bearing' })],
+      [{ testCode: 'CONCRETE_MIX_DESIGN', testName: 'Mix design', domain: 'CONCRETE',
+         isCode: 'IS 10262', requiresNabl: true, tatDays: 28 }],
+    );
     expect(out.stages.flatMap((s) => s.tests).map((t) => t.code)).toEqual(['BEARING']);
+    expect(out.crossStage.map((t) => t.code)).toEqual(['CONCRETE_MIX_DESIGN']);
+    // No stage rule → frequency reads as ONCE, and it is never a repeat.
+    expect(out.crossStage[0].frequency).toEqual({ key: 'catalog.freq.ONCE', params: {} });
+    expect(out.crossStage[0].repeatsAcrossStages).toBe(false);
   });
 });

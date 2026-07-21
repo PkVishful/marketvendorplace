@@ -866,8 +866,8 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     const userId = requireUser(req, res);
     if (!userId) return;
     try {
-      const rows = await withUserSession(userId, async (client) => {
-        const q = await client.query(
+      const { stageRows, crossRows } = await withUserSession(userId, async (client) => {
+        const staged = await client.query(
           `select
              cs.code            as "stageCode",
              cs.name            as "stageName",
@@ -886,9 +886,26 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
           where tsr.is_active and tc.is_active and tsr.org_unit_id is null
           order by cs.sequence, tc.name`,
         );
-        return q.rows;
+        // Cross-stage tests: active catalog tests with no state-wide stage rule
+        // (concrete mix design, water quality) — they gate the whole job.
+        const cross = await client.query(
+          `select
+             tc.code            as "testCode",
+             tc.name            as "testName",
+             tc.domain          as "domain",
+             tc.default_is_code as "isCode",
+             tc.requires_nabl   as "requiresNabl",
+             tc.typical_tat_days as "tatDays"
+           from eworks.test_catalog tc
+          where tc.is_active
+            and not exists (select 1 from eworks.test_stage_rules tsr
+                             where tsr.test_id = tc.id and tsr.is_active
+                               and tsr.org_unit_id is null)
+          order by tc.name`,
+        );
+        return { stageRows: staged.rows, crossRows: cross.rows };
       });
-      res.json(shapeChecklist(rows));
+      res.json(shapeChecklist(stageRows, crossRows));
     } catch (err) {
       res.status(500).json({ error: 'query_failed', detail: err.message });
     }
