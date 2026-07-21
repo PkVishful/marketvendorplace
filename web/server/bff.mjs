@@ -5,7 +5,9 @@
 // that the backend's RLS reads.
 
 import express from 'express';
+import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { registerAdminRoutes } from './admin.mjs';
 import { withUserSession, lookupProfile, pool } from './db.mjs';
 import {
   buildSession, findUserIdByPhone, issueChallenge, userRequiresMfa, verifyChallenge,
@@ -14,6 +16,7 @@ import { saveKycDocument, readKycDocument } from './kyc-upload.mjs';
 import { saveContractorDocument, readContractorDocument } from './kyc-upload.mjs';
 import { loadConfig } from './env.mjs';
 import { selectProvider } from './otp/provider.mjs';
+import { shapeChecklist } from './catalog.mjs';
 import {
   corsMiddleware, setSessionCookie, clearSessionCookie, readSessionCookie,
   createRateLimiter, ipKey, phoneKey, redactErrorDetailMiddleware, errorHandler,
@@ -859,6 +862,38 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     }
   });
 
+  app.get('/api/catalog/checklist', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const rows = await withUserSession(userId, async (client) => {
+        const q = await client.query(
+          `select
+             cs.code            as "stageCode",
+             cs.name            as "stageName",
+             cs.sequence        as "sequence",
+             tc.code            as "testCode",
+             tc.name            as "testName",
+             tc.domain          as "domain",
+             coalesce(tsr.is_code, tc.default_is_code) as "isCode",
+             tc.requires_nabl   as "requiresNabl",
+             tc.typical_tat_days as "tatDays",
+             tsr.frequency_type as "frequencyType",
+             tsr.frequency_spec as "frequencySpec"
+           from eworks.test_stage_rules tsr
+           join eworks.test_catalog tc on tc.id = tsr.test_id
+           join eworks.construction_stage cs on cs.id = tsr.stage_id
+          where tsr.is_active and tc.is_active and tsr.org_unit_id is null
+          order by cs.sequence, tc.name`,
+        );
+        return q.rows;
+      });
+      res.json(shapeChecklist(rows));
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
   app.post('/api/gov/projects/:projectId/planner/generate', async (req, res) => {
     const userId = requireUser(req, res);
     if (!userId) return;
@@ -1576,7 +1611,7 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
              p.full_name       as "fullName",
              p.is_active       as "isActive",
              ur.role_code      as "roleCode",
-             r.name            as "roleName",
+             initcap(replace(ur.role_code, '_', ' ')) as "roleName",
              ou.id             as "orgUnitId",
              ou.name           as "orgName",
              ou.level          as "orgLevel",
@@ -1586,7 +1621,6 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
            from eworks.user_roles ur
            join eworks.user_profiles p on p.id = ur.user_id
            join eworks.org_units ou on ou.id = ur.org_unit_id
-           left join eworks.roles r on r.code = ur.role_code
           where ur.role_code in (
             'HEAD_ADMIN',
             'DISTRICT_OFFICER',
@@ -1623,25 +1657,35 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
   app.get('/api/gov/vendors', async (req, res) => {
     const userId = requireUser(req, res);
     if (!userId) return;
-    const status = req.query.status || 'SUBMITTED';
+    const status = String(req.query.status || 'SUBMITTED');
+    const filterAll = status.toUpperCase() === 'ALL';
+    const baseSelect = `
+      select
+        v.id,
+        v.legal_name        as "legalName",
+        v.status,
+        v.gstin,
+        v.pan,
+        v.nabl_no           as "nablNo",
+        v.nabl_valid_until  as "nablValidUntil",
+        ou.name             as "districtName",
+        v.created_at        as "createdAt",
+        (select count(*)::int
+           from eworks.vendor_documents d
+          where d.vendor_id = v.id and d.status = 'APPROVED') as "approvedDocCount",
+        (select count(*)::int
+           from eworks.vendor_documents d
+          where d.vendor_id = v.id) as "uploadedDocCount"
+      from eworks.vendors v
+      join eworks.org_units ou on ou.id = v.org_unit_id`;
     try {
       const rows = await withUserSession(userId, async (client) => {
-        const q = await client.query(
-          `select
-             v.id,
-             v.legal_name        as "legalName",
-             v.status,
-             v.gstin,
-             v.nabl_no           as "nablNo",
-             v.nabl_valid_until  as "nablValidUntil",
-             ou.name             as "districtName",
-             v.created_at        as "createdAt"
-           from eworks.vendors v
-           join eworks.org_units ou on ou.id = v.org_unit_id
-          where v.status = $1::eworks.vendor_status
-          order by v.created_at desc`,
-          [status],
-        );
+        const q = filterAll
+          ? await client.query(`${baseSelect} order by v.created_at desc`)
+          : await client.query(
+              `${baseSelect} where v.status = $1::eworks.vendor_status order by v.created_at desc`,
+              [status],
+            );
         return q.rows;
       });
       res.json(rows);
@@ -1661,14 +1705,18 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
              v.legal_name        as "legalName",
              v.status,
              v.gstin,
+             v.pan,
              v.nabl_no           as "nablNo",
              v.nabl_valid_until  as "nablValidUntil",
              v.address,
              v.service_radius_km as "serviceRadiusKm",
              ou.name             as "districtName",
-             v.created_at        as "createdAt"
+             v.created_at        as "createdAt",
+             up.full_name        as "contactName",
+             up.phone            as "contactPhone"
            from eworks.vendors v
            join eworks.org_units ou on ou.id = v.org_unit_id
+           join eworks.user_profiles up on up.id = v.owner_user_id
           where v.id = $1`,
           [req.params.id],
         );
@@ -1676,7 +1724,8 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
 
         const docsQ = await client.query(
           `select id, doc_type as "docType", status, mime_type as "mimeType",
-                  storage_path as "storagePath", reject_reason as "rejectReason"
+                  storage_path as "storagePath", reject_reason as "rejectReason",
+                  uploaded_at as "uploadedAt"
              from eworks.vendor_documents
             where vendor_id = $1
             order by doc_type`,
@@ -1697,6 +1746,94 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
       res.json(result);
     } catch (err) {
       res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
+  app.post('/api/gov/vendors/register', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const {
+      legalName,
+      contactName,
+      phone,
+      email,
+      gstin,
+      pan,
+      address,
+      categories,
+    } = req.body || {};
+    const cleanPhone = String(phone ?? '').replace(/\D/g, '').slice(-10);
+    if (!legalName?.trim() || !contactName?.trim() || cleanPhone.length !== 10) {
+      return res.status(400).json({ error: 'missing_required_fields' });
+    }
+    if (!gstin?.trim() || !pan?.trim() || !address?.trim()) {
+      return res.status(400).json({ error: 'missing_required_fields' });
+    }
+    try {
+      const row = await withUserSession(userId, async (client) => {
+        const permQ = await client.query(
+          `select eworks.has_permission('vendor.approve') as ok`,
+        );
+        if (!permQ.rows[0]?.ok) throw new Error('forbidden');
+
+        const districtQ = await client.query(
+          `select ou.id, ou.name, ou.path
+             from eworks.user_roles ur
+             join eworks.org_units ou on ou.id = ur.org_unit_id
+            where ur.user_id = eworks.current_user_id()
+              and ur.role_code in ('DISTRICT_OFFICER', 'EXECUTIVE_ENGINEER', 'SUPERINTENDING_ENGINEER', 'HEAD_ADMIN')
+            order by nlevel(ou.path)
+            limit 1`,
+        );
+        const district = districtQ.rows[0];
+        if (!district) throw new Error('no district scope for officer');
+
+        const existingUserQ = await client.query(
+          `select id from eworks.user_profiles where phone = $1`,
+          [cleanPhone],
+        );
+        if (existingUserQ.rowCount > 0) {
+          throw new Error('phone already registered — vendor must sign in with OTP');
+        }
+
+        const ownerId = crypto.randomUUID();
+        await client.query(
+          `insert into eworks.user_profiles (id, phone, full_name) values ($1, $2, $3)`,
+          [ownerId, cleanPhone, contactName.trim()],
+        );
+        await client.query(
+          `insert into eworks.user_roles (user_id, role_code, org_unit_id)
+           values ($1, 'LAB_VENDOR', $2)
+           on conflict on constraint user_roles_unique do nothing`,
+          [ownerId, district.id],
+        );
+
+        const note = email?.trim()
+          ? `${address.trim()} · ${email.trim()}${categories?.length ? ` · ${categories.join(', ')}` : ''}`
+          : address.trim();
+
+        const vQ = await client.query(
+          `insert into eworks.vendors
+             (owner_user_id, org_unit_id, legal_name, gstin, pan, address,
+              location, service_radius_km, status)
+           values ($1, $2, $3, $4, $5, $6,
+                   st_makepoint(76.9558, 11.0168)::geography, 50, 'DRAFT')
+           returning id, legal_name as "legalName", status, gstin,
+                     created_at as "createdAt"`,
+          [
+            ownerId,
+            district.id,
+            legalName.trim(),
+            gstin.trim().toUpperCase(),
+            pan.trim().toUpperCase(),
+            note,
+          ],
+        );
+        return { ...vQ.rows[0], districtName: district.name, pan: pan.trim().toUpperCase() };
+      });
+      res.status(201).json(row);
+    } catch (err) {
+      res.status(400).json({ error: 'register_failed', detail: err.message });
     }
   });
 
@@ -2016,6 +2153,253 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     }
   });
 
+  // --- vendor pricing (rate card) --------------------------------------------
+  // The DB layer (20260709000900_pricing_integrity.sql) guarantees at most one
+  // live price per (vendor, test, date) via a GiST exclusion constraint on
+  // half-open [from, to) windows. These endpoints never delete history: a price
+  // change closes the live window at the new boundary and opens the next one.
+
+  function httpError(status, message) {
+    const err = new Error(message);
+    err.httpStatus = status;
+    return err;
+  }
+
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+  // Own vendor row + org path (for audit rows). RLS already limits the visible
+  // vendors to the caller's own; the explicit owner filter keeps intent clear.
+  async function resolveOwnVendor(client) {
+    const q = await client.query(
+      `select v.id, v.status, ou.path as "orgPath"
+         from eworks.vendors v
+         join eworks.org_units ou on ou.id = v.org_unit_id
+        where v.owner_user_id = eworks.current_user_id()`,
+    );
+    return q.rows[0] ?? null;
+  }
+
+  app.get('/api/vendor/pricing', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const rows = await withUserSession(userId, async (client) => {
+        // security_invoker view: RLS scopes it to the caller's own vendor.
+        // Unpriced capabilities come through the view's left join — they are
+        // the vendor's to-do list, so they must appear here.
+        const q = await client.query(
+          `select test_id            as "testId",
+                  test_code          as "testCode",
+                  test_name          as "testName",
+                  requires_nabl      as "requiresNabl",
+                  is_qualified_today as "isQualifiedToday",
+                  price_paise        as "currentPricePaise",
+                  effective_from     as "effectiveFrom",
+                  effective_to       as "effectiveTo",
+                  is_priced_today    as "isPricedToday"
+             from eworks.vendor_service_catalog
+            order by is_priced_today, test_name`,
+        );
+        return q.rows;
+      });
+      res.json(rows.map((r) => ({
+        ...r,
+        currentPricePaise: r.currentPricePaise == null ? null : Number(r.currentPricePaise),
+      })));
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
+  app.put('/api/vendor/pricing/:testId', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const { pricePaise, effectiveFrom } = req.body || {};
+    // Money is integer paise end-to-end: fractional paise is a client bug.
+    if (!Number.isInteger(pricePaise) || pricePaise <= 0) {
+      return res.status(400).json({ error: 'invalid_price', detail: 'pricePaise must be a positive integer' });
+    }
+    if (effectiveFrom != null && !DATE_RE.test(String(effectiveFrom))) {
+      return res.status(400).json({ error: 'invalid_date', detail: 'effectiveFrom must be YYYY-MM-DD' });
+    }
+    try {
+      const row = await withUserSession(userId, async (client) => {
+        const vendor = await resolveOwnVendor(client);
+        if (!vendor || vendor.status !== 'APPROVED') {
+          throw httpError(403, 'only an approved vendor can publish prices');
+        }
+        const capQ = await client.query(
+          `select 1 from eworks.vendor_test_capabilities
+            where vendor_id = $1 and test_id = $2 and is_active`,
+          [vendor.id, req.params.testId],
+        );
+        if (capQ.rowCount === 0) {
+          throw httpError(403, 'no active capability for this test');
+        }
+
+        // The DB's calendar is authoritative — never trust the Node clock.
+        const dateQ = await client.query(
+          `select coalesce($1::date, current_date) as "from",
+                  coalesce($1::date, current_date) < current_date as "inPast"`,
+          [effectiveFrom ?? null],
+        );
+        const newFrom = dateQ.rows[0].from;
+        if (dateQ.rows[0].inPast) {
+          throw httpError(400, 'effectiveFrom must not be in the past');
+        }
+
+        // A future-dated window would overlap the new open-ended one. Naming
+        // it beats letting the exclusion constraint abort the transaction —
+        // and we must never silently delete a future window.
+        const conflictQ = await client.query(
+          `select effective_from::text as "from", effective_to::text as "to"
+             from eworks.vendor_test_pricing
+            where vendor_id = $1 and test_id = $2 and effective_from > $3::date
+            order by effective_from limit 1`,
+          [vendor.id, req.params.testId, newFrom],
+        );
+        if (conflictQ.rowCount > 0) {
+          const w = conflictQ.rows[0];
+          throw httpError(409,
+            `a price window starting ${w.from} (until ${w.to ?? 'open-ended'}) already exists; ` +
+            'change or stop that window first');
+        }
+
+        // Close the live window at the boundary, then open the new one.
+        // Half-open [from, to) means no one-day hole and no one-day overlap.
+        const closedQ = await client.query(
+          `update eworks.vendor_test_pricing
+              set effective_to = $3::date
+            where vendor_id = $1 and test_id = $2 and effective_range @> $3::date
+            returning effective_from as "from"`,
+          [vendor.id, req.params.testId, newFrom],
+        );
+        const insertQ = await client.query(
+          `insert into eworks.vendor_test_pricing (vendor_id, test_id, price_paise, effective_from)
+           values ($1, $2, $3, $4::date)
+           returning id, price_paise as "pricePaise", effective_from as "effectiveFrom", effective_to as "effectiveTo"`,
+          [vendor.id, req.params.testId, pricePaise, newFrom],
+        );
+        const created = insertQ.rows[0];
+
+        await client.query(
+          `insert into eworks.audit_logs (actor_id, action, entity_type, entity_id, org_path, payload)
+           values (eworks.current_user_id(), 'vendor.price_set', 'vendor_test_pricing', $1, $2,
+                   jsonb_build_object('test_id', $3::uuid, 'price_paise', $4::bigint,
+                                      'effective_from', $5::date, 'closed_previous', $6::boolean))`,
+          [created.id, vendor.orgPath, req.params.testId, pricePaise, newFrom, closedQ.rowCount > 0],
+        );
+        return { ...created, pricePaise: Number(created.pricePaise) };
+      });
+      res.json(row);
+    } catch (err) {
+      // Safety net: a concurrent writer can still trip the exclusion
+      // constraint between our pre-check and the insert.
+      if (err.code === '23P01') {
+        return res.status(409).json({ error: 'price_window_conflict', detail: 'an overlapping price window already exists' });
+      }
+      res.status(err.httpStatus ?? 400).json({ error: 'price_set_failed', detail: err.message });
+    }
+  });
+
+  app.get('/api/vendor/pricing/:testId/history', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const rows = await withUserSession(userId, async (client) => {
+        // RLS makes this the caller's own windows only. Empty windows (closed
+        // at their own start by a same-day reprice) carry no information.
+        const q = await client.query(
+          `select price_paise    as "pricePaise",
+                  effective_from as "effectiveFrom",
+                  effective_to   as "effectiveTo"
+             from eworks.vendor_test_pricing
+            where test_id = $1 and not isempty(effective_range)
+            order by effective_from desc`,
+          [req.params.testId],
+        );
+        return q.rows;
+      });
+      res.json(rows.map((r) => ({ ...r, pricePaise: Number(r.pricePaise) })));
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
+  app.delete('/api/vendor/pricing/:testId', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const closed = await withUserSession(userId, async (client) => {
+        const vendor = await resolveOwnVendor(client);
+        if (!vendor) throw httpError(403, 'no vendor on this account');
+        // Stop offering: close the live window today. History stays — it is
+        // evidence, so there is no hard delete on this table from the app.
+        const q = await client.query(
+          `update eworks.vendor_test_pricing
+              set effective_to = current_date
+            where vendor_id = $1 and test_id = $2 and effective_range @> current_date
+            returning id, effective_from as "effectiveFrom"`,
+          [vendor.id, req.params.testId],
+        );
+        if (q.rowCount === 0) return null;
+        await client.query(
+          `insert into eworks.audit_logs (actor_id, action, entity_type, entity_id, org_path, payload)
+           values (eworks.current_user_id(), 'vendor.price_stop', 'vendor_test_pricing', $1, $2,
+                   jsonb_build_object('test_id', $3::uuid))`,
+          [q.rows[0].id, vendor.orgPath, req.params.testId],
+        );
+        return q.rows[0];
+      });
+      if (!closed) return res.status(404).json({ error: 'no_live_price' });
+      res.json({ stopped: true, effectiveTo: null, closedWindowFrom: closed.effectiveFrom });
+    } catch (err) {
+      res.status(err.httpStatus ?? 400).json({ error: 'price_stop_failed', detail: err.message });
+    }
+  });
+
+  // Officer view of a vendor's current rate card. RLS keeps the pricing ROWS
+  // owner-only (an officer must not browse window history), but the current
+  // effective price is exposed through the security-definer helpers the bid
+  // gate itself uses. Scope is enforced by the vendors_read policy: a vendor
+  // outside the officer's scope is invisible, so this 404s like the detail
+  // route. Read-only by construction — there is no officer write path.
+  app.get('/api/gov/vendors/:id/pricing', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const rows = await withUserSession(userId, async (client) => {
+        const vQ = await client.query(
+          `select 1 from eworks.vendors where id = $1`,
+          [req.params.id],
+        );
+        if (vQ.rowCount === 0) return null;
+        const q = await client.query(
+          `select tc.id            as "testId",
+                  tc.code          as "testCode",
+                  tc.name          as "testName",
+                  tc.requires_nabl as "requiresNabl",
+                  eworks.vendor_qualified_for($1, tc.id)  as "isQualifiedToday",
+                  eworks.vendor_effective_price($1, tc.id) as "currentPricePaise"
+             from eworks.vendor_test_capabilities c
+             join eworks.test_catalog tc on tc.id = c.test_id
+            where c.vendor_id = $1 and c.is_active
+            order by tc.name`,
+          [req.params.id],
+        );
+        return q.rows;
+      });
+      if (!rows) return res.status(404).json({ error: 'vendor_not_found' });
+      res.json(rows.map((r) => ({
+        ...r,
+        currentPricePaise: r.currentPricePaise == null ? null : Number(r.currentPricePaise),
+        isPricedToday: r.currentPricePaise != null,
+      })));
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
   app.get('/api/kyc/files/:vendorId/:docType', async (req, res) => {
     const userId = requireUser(req, res);
     if (!userId) return;
@@ -2330,6 +2714,8 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
   });
 
   // Terminal error handler — must be registered after all routes/middleware
+  registerAdminRoutes(app, { requireUser, withUserSession });
+
   // (Express only recognizes 4-arg handlers here). Catches anything forwarded
   // by Express, including rejected async handlers, so stack traces never leak.
   app.use(errorHandler(config));
