@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/apiClient';
-import type { CustodyEvent, FieldJobDetail, FieldJobSummary } from '@/types/domain';
+import type { CustodyEvent, FieldJobDetail, FieldJobsResponse } from '@/types/domain';
 
 export const jobKeys = {
   all: ['vendor', 'jobs'] as const,
@@ -7,11 +7,15 @@ export const jobKeys = {
 };
 
 export function fetchFieldJobs() {
-  return apiClient.get<FieldJobSummary[]>('/api/vendor/jobs');
+  return apiClient.get<FieldJobsResponse>('/api/vendor/jobs');
 }
 
 export function fetchFieldJob(id: string) {
   return apiClient.get<FieldJobDetail>(`/api/vendor/jobs/${id}`);
+}
+
+export function acceptAward(orderId: string) {
+  return apiClient.post<{ jobId: string; status: string }>(`/api/vendor/orders/${orderId}/accept`, {});
 }
 
 export function checkInToJob(

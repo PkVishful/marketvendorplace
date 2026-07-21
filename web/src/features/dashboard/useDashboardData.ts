@@ -82,7 +82,7 @@ export function useVendorDashboardData(enabled: boolean) {
 
   const [ordersQ, jobsQ, notifQ, earningsQ] = results;
   const orders = ordersQ.data ?? [];
-  const jobs = jobsQ.data ?? [];
+  const jobs = jobsQ.data?.jobs ?? [];
   const notifications = notifQ.data ?? [];
   const earnings = earningsQ.data;
 

@@ -156,6 +156,7 @@ export interface VendorOrderDetail extends Omit<VendorOrderSummary, 'itemCount'>
   orgName: string;
   items: OrderItemDTO[];
   myBid: VendorBidDTO | null;
+  jobId: string | null;
 }
 
 // One row of the vendor feed.
@@ -343,6 +344,17 @@ export interface FieldJobSummary {
   lat: number;
   lng: number;
   sampleCount: number;
+}
+
+export interface AwaitingJob {
+  orderId: string;
+  milestone: string;
+  requiredBy: string;
+}
+
+export interface FieldJobsResponse {
+  jobs: FieldJobSummary[];
+  awaiting: AwaitingJob[];
 }
 
 export interface FieldJobDetail extends Omit<FieldJobSummary, 'sampleCount'> {

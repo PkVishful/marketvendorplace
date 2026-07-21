@@ -313,7 +313,8 @@
     "tests": "சோதனைகள்",
     "viewDetail": "டெண்டரைப் பார்",
     "itemsTitle": "கோரப்பட்ட சோதனைகள்",
-    "nablRequired": "NABL அங்கீகாரம் தேவை"
+    "nablRequired": "NABL அங்கீகாரம் தேவை",
+    "youWon": "இந்த டெண்டரில் நீங்கள் வென்றீர்கள்"
   },
   "jobs": {
     "title": "கள பணிகள்",
@@ -323,6 +324,10 @@
     "notFoundTitle": "பணி கிடைக்கவில்லை",
     "notFoundBody": "இந்த பணி row-level security மூலம் மறைக்கப்பட்டுள்ளது.",
     "viewDetail": "பணியைத் திற",
+    "awaitingTitle": "ஒப்படைக்கப்பட்டது — தொடங்கத் தயார்",
+    "acceptStart": "ஏற்று வேலையைத் தொடங்கு",
+    "accepting": "தொடங்குகிறது…",
+    "goToJob": "வேலைக்குச் செல்",
     "samples": "மாதிரிகள்",
     "vendor": "ஆய்வகம்",
     "device": "Bound device",

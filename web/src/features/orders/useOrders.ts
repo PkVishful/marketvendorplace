@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { acceptAward, jobKeys } from '@/features/jobs/api';
 import {
   commitBid,
   fetchVendorOrder,
@@ -6,6 +7,17 @@ import {
   orderKeys,
   revealBid,
 } from './api';
+
+export function useAcceptOrderAward(orderId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => acceptAward(orderId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: orderKeys.detail(orderId) });
+      void qc.invalidateQueries({ queryKey: jobKeys.all });
+    },
+  });
+}
 
 export function useVendorOrders() {
   return useQuery({

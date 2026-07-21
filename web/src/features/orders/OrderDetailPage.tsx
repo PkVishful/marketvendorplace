@@ -1,9 +1,10 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FeedSkeleton } from '@/components/Skeleton';
+import type { VendorOrderDetail } from '@/types/domain';
 import { BidPanel } from './BidPanel';
 import { OrderStatusPill } from './OrderStatusPill';
-import { useVendorOrder } from './useOrders';
+import { useAcceptOrderAward, useVendorOrder } from './useOrders';
 import { formatDate, formatDeadline } from '@/lib/time';
 
 export function OrderDetailPage() {
@@ -54,6 +55,8 @@ export function OrderDetailPage() {
         <OrderStatusPill status={order.status} />
       </header>
 
+      {order.status === 'AWARDED' && <AwardBlock order={order} />}
+
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map(([label, value]) => (
           <div key={label} className="gov-stat">
@@ -90,5 +93,30 @@ export function OrderDetailPage() {
         ))}
       </ul>
     </section>
+  );
+}
+
+function AwardBlock({ order }: { order: VendorOrderDetail }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const accept = useAcceptOrderAward(order.id);
+  return (
+    <div className="mt-6 gov-card border-l-4 border-l-accent p-5">
+      <p className="font-display text-lg font-bold text-ink">{t('orders.youWon')}</p>
+      <div className="mt-3">
+        {order.jobId ? (
+          <Link to={`/vendor/jobs/${order.jobId}`} className="gov-btn-primary inline-flex">
+            {t('jobs.goToJob')}
+          </Link>
+        ) : (
+          <button
+            type="button" className="gov-btn-primary" disabled={accept.isPending}
+            onClick={() => accept.mutate(undefined, { onSuccess: (r) => navigate(`/vendor/jobs/${r.jobId}`) })}
+          >
+            {accept.isPending ? t('jobs.accepting') : t('jobs.acceptStart')}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

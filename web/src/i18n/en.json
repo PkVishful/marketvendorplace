@@ -313,7 +313,8 @@
     "tests": "tests",
     "viewDetail": "View tender",
     "itemsTitle": "Tests requested",
-    "nablRequired": "NABL accreditation required"
+    "nablRequired": "NABL accreditation required",
+    "youWon": "You won this tender"
   },
   "jobs": {
     "title": "Field jobs",
@@ -323,6 +324,10 @@
     "notFoundTitle": "Job not available",
     "notFoundBody": "This job is hidden by row-level security — you may not be the assigned technician.",
     "viewDetail": "Open job",
+    "awaitingTitle": "Awarded — ready to start",
+    "acceptStart": "Accept & start job",
+    "accepting": "Starting…",
+    "goToJob": "Go to job",
     "samples": "samples",
     "vendor": "Lab",
     "device": "Bound device",
