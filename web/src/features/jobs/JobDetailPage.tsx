@@ -4,9 +4,17 @@ import { useTranslation } from 'react-i18next';
 import { FeedSkeleton } from '@/components/Skeleton';
 import { getDeviceId } from '@/lib/deviceId';
 import { downscaleToJpegDataUrl } from '@/lib/photoCapture';
-import { randomPhotoSha256Hex } from '@/lib/photoHash';
-import { checkinPhotoUrl } from './api';
+import { checkinPhotoUrl, certificateFileUrl } from './api';
 import { generateQrCode, isValidQrCode } from '@/lib/qrCode';
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
+}
 import type { CustodyEvent } from '@/types/domain';
 import { formatDate, formatDeadline, formatInr } from '@/lib/time';
 import { JobStatusPill } from './JobStatusPill';
@@ -60,6 +68,7 @@ export function JobDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const certRef = useRef<HTMLInputElement>(null);
 
   if (isPending) return <FeedSkeleton />;
 
@@ -192,14 +201,13 @@ export function JobDetailPage() {
     }
   }
 
-  async function handleUploadCertificate() {
+  async function onPickCertificate(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
     setActionError(null);
     try {
-      const sha256 = await randomPhotoSha256Hex();
-      await uploadCert.mutateAsync({
-        storagePath: `certs/${id.slice(0, 8)}.pdf`,
-        sha256,
-      });
+      const dataUrl = await readFileAsDataUrl(file);
+      await uploadCert.mutateAsync({ file: dataUrl });
     } catch (err) {
       setActionError(err instanceof Error ? err.message : t('results.certFailed'));
     }
@@ -509,13 +517,20 @@ export function JobDetailPage() {
         <div className="gov-card mt-8 border-l-4 border-l-navy p-6">
           <h3 className="font-display text-lg font-bold">{t('results.uploadCert')}</h3>
           <p className="mt-2 text-sm text-ink-2">{t('results.uploadCertBody')}</p>
+          <input
+            ref={certRef}
+            type="file"
+            accept="application/pdf"
+            className="sr-only"
+            onChange={(e) => void onPickCertificate(e)}
+          />
           <button
             type="button"
             className="gov-btn-primary mt-4"
             disabled={uploadCert.isPending}
-            onClick={() => void handleUploadCertificate()}
+            onClick={() => certRef.current?.click()}
           >
-            {uploadCert.isPending ? t('states.loading') : t('results.uploadCertBtn')}
+            {uploadCert.isPending ? t('states.loading') : t('results.pickCert')}
           </button>
         </div>
       )}
@@ -523,7 +538,14 @@ export function JobDetailPage() {
       {job.certificate && (
         <div className="gov-card mt-6 border-l-4 border-l-good p-5">
           <p className="gov-label">{t('results.certificate')}</p>
-          <p className="mt-1 text-sm font-semibold">{job.certificate.storagePath}</p>
+          <a
+            href={certificateFileUrl(id)}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-block text-sm font-semibold text-navy hover:underline"
+          >
+            {t('results.viewCert')}
+          </a>
           <p className="mt-1 text-xs text-ink-3">
             {job.certificate.signatureVerified
               ? t('results.certVerified')

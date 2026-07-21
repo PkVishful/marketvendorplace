@@ -131,6 +131,14 @@ export function GovOrderFulfillment({
                   ? t('fulfillment.certVerified', { signer: fulfillment.certificate.signerName ?? '' })
                   : t('fulfillment.certPending')}
               </p>
+              <a
+                href={`/api/gov/orders/${orderId}/certificate/file`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 block text-xs font-semibold text-navy hover:underline"
+              >
+                {t('fulfillment.downloadCert')}
+              </a>
               {fulfillment.canVerifyCertificate && !fulfillment.certificate.signatureVerified && (
                 <button
                   type="button"

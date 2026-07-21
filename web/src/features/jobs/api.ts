@@ -67,8 +67,12 @@ export function recordTestResult(body: {
   }>('/api/vendor/results', body);
 }
 
-export function uploadJobCertificate(jobId: string, body: { storagePath: string; sha256: string }) {
+export function uploadJobCertificate(jobId: string, body: { file: string }) {
   return apiClient.post(`/api/vendor/jobs/${jobId}/certificate`, body);
+}
+
+export function certificateFileUrl(jobId: string) {
+  return `/api/vendor/jobs/${jobId}/certificate/file`;
 }
 
 export function advanceDevJob(jobId: string) {

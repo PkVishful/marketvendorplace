@@ -13,6 +13,7 @@ vi.mock('./api', async (o) => ({
   ...(await o<typeof api>()),
   fetchFieldJob: vi.fn(),
   checkInToJob: vi.fn(async () => ({ id: 'ci', distanceM: 0 })),
+  uploadJobCertificate: vi.fn(async () => ({ id: 'cert-1' })),
 }));
 vi.mock('@/lib/photoCapture', async (o) => ({
   ...(await o<typeof capture>()),
@@ -60,5 +61,32 @@ describe('JobDetailPage — check-in photo', () => {
     await waitFor(() => expect(api.checkInToJob).toHaveBeenCalled());
     const body = vi.mocked(api.checkInToJob).mock.calls[0][1];
     expect(body.photo).toBe('data:image/jpeg;base64,AAAA');
+  });
+});
+
+describe('JobDetailPage — certificate upload', () => {
+  const withResults = {
+    ...job,
+    status: 'TESTING',
+    checkIn: { distanceM: 0, accuracyM: 8, serverAt: '2026-07-21T00:00:00Z' },
+    samples: [{
+      id: 's1', qrCode: 'EW-ABCDEFGHJKLM', specimenNo: 1, testAgeDays: 28,
+      testName: 'Cube', receivedAtLab: true,
+      result: { passed: true, isProvisional: false, metric: 'strength_n_per_mm2', metricValue: 31, thresholdMin: 25 },
+    }],
+    certificate: null,
+  };
+
+  it('uploads a chosen PDF certificate', async () => {
+    vi.mocked(api.fetchFieldJob).mockResolvedValue(withResults as never);
+    renderPage();
+    await screen.findByRole('button', { name: /Upload certificate \(PDF\)/i });
+    const input = document.querySelector('input[accept="application/pdf"]') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    const pdf = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], 'c.pdf', { type: 'application/pdf' });
+    await userEvent.upload(input, pdf);
+    await waitFor(() => expect(api.uploadJobCertificate).toHaveBeenCalled());
+    const body = vi.mocked(api.uploadJobCertificate).mock.calls[0][1];
+    expect(typeof body.file).toBe('string');
   });
 });
