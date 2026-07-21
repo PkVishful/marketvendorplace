@@ -832,6 +832,35 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     }
   });
 
+  // The distinct quantity units a stage's rules need — the planner renders one
+  // input per unit instead of hard-coding a list. ONCE rules need no quantity,
+  // so they are excluded. Driven from the catalog, so adding a test with a new
+  // unit surfaces automatically.
+  app.get('/api/gov/stages/:stageCode/units', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const units = await withUserSession(userId, async (client) => {
+        const q = await client.query(
+          `select distinct tsr.frequency_spec ->> 'unit' as unit
+             from eworks.test_stage_rules tsr
+             join eworks.construction_stage cs on cs.id = tsr.stage_id
+            where cs.code = $1
+              and tsr.is_active
+              and tsr.org_unit_id is null
+              and tsr.frequency_type <> 'ONCE'
+              and tsr.frequency_spec ->> 'unit' is not null
+            order by 1`,
+          [req.params.stageCode],
+        );
+        return q.rows.map((r) => r.unit);
+      });
+      res.json({ units });
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
   app.get('/api/gov/projects/:projectId/requirements', async (req, res) => {
     const userId = requireUser(req, res);
     if (!userId) return;

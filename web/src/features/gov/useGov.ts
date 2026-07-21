@@ -5,6 +5,7 @@ import {
   closeGovBidding,
   createGovOrder,
   fetchConstructionStages,
+  fetchStageUnits,
   fetchGovOrder,
   fetchGovOrders,
   fetchGovProjects,
@@ -14,6 +15,7 @@ import {
   floatGovOrder,
   generateRequirements,
   govKeys,
+  registerGovVendor,
   reviewGovVendor,
   reviewGovVendorDocument,
   releaseGovPayment,
@@ -32,6 +34,15 @@ export function useGovProjects() {
 
 export function useConstructionStages() {
   return useQuery({ queryKey: govKeys.stages, queryFn: fetchConstructionStages });
+}
+
+export function useStageUnits(stageCode: string) {
+  return useQuery({
+    queryKey: govKeys.stageUnits(stageCode),
+    queryFn: () => fetchStageUnits(stageCode),
+    enabled: Boolean(stageCode),
+    select: (d) => d.units,
+  });
 }
 
 export function useProjectRequirements(projectId: string) {
@@ -139,13 +150,23 @@ export function useGovVendor(id: string) {
   });
 }
 
+export function useRegisterGovVendor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: registerGovVendor,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['gov', 'vendors'] });
+    },
+  });
+}
+
 export function useReviewGovVendor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, decision }: { id: string; decision: 'approve' | 'reject' }) =>
       reviewGovVendor(id, decision),
     onSuccess: (_data, { id }) => {
-      void qc.invalidateQueries({ queryKey: govKeys.vendors() });
+      void qc.invalidateQueries({ queryKey: ['gov', 'vendors'] });
       void qc.invalidateQueries({ queryKey: govKeys.vendorDetail(id) });
     },
   });
@@ -164,6 +185,7 @@ export function useReviewGovVendorDocument(vendorId: string) {
       reason?: string;
     }) => reviewGovVendorDocument(vendorId, docType, decision, reason),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['gov', 'vendors'] });
       void qc.invalidateQueries({ queryKey: govKeys.vendorDetail(vendorId) });
     },
   });

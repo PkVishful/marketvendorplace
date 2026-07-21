@@ -9,14 +9,20 @@ import {
   useGenerateRequirements,
   useGovProjects,
   useProjectRequirements,
+  useStageUnits,
 } from './useGov';
 
-const SUPERSTRUCTURE_QTY = [
-  { key: 'm3', labelKey: 'planner.qtyM3' },
-  { key: 'consignment', labelKey: 'planner.qtyConsignment' },
-  { key: 'heat', labelKey: 'planner.qtyHeat' },
-  { key: 'pour', labelKey: 'planner.qtyPour' },
-] as const;
+// Humanised fallback for a quantity unit with no `planner.unit.<u>` translation
+// — a brand-new catalog unit still shows a sensible label, not a raw slug (the
+// whole point: no hard-coded list).
+function humanizeUnit(unit: string): string {
+  return unit.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+}
+
+// Whole-number units; only concrete volume is fractional.
+function unitStep(unit: string): 'any' | 1 {
+  return unit === 'm3' ? 'any' : 1;
+}
 
 export function PlannerPage() {
   const { t } = useTranslation();
@@ -25,12 +31,13 @@ export function PlannerPage() {
 
   const [projectId, setProjectId] = useState('');
   const [stageCode, setStageCode] = useState('SUPERSTRUCTURE');
-  const [quantities, setQuantities] = useState({ m3: '120', consignment: '3', heat: '2', pour: '1' });
+  const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [milestone, setMilestone] = useState('Superstructure pour — M1');
   const [error, setError] = useState<string | null>(null);
 
   const activeProject = projectId || projects?.[0]?.id || '';
   const { data: requirements, isPending: reqPending } = useProjectRequirements(activeProject);
+  const { data: units, isPending: unitsPending } = useStageUnits(stageCode);
   const generate = useGenerateRequirements(activeProject);
   const createOrder = useCreateGovOrder(activeProject);
 
@@ -43,13 +50,13 @@ export function PlannerPage() {
     e.preventDefault();
     setError(null);
     const parsed: Record<string, number> = {};
-    for (const { key } of SUPERSTRUCTURE_QTY) {
-      const n = Number(quantities[key]);
+    for (const unit of units ?? []) {
+      const n = Number(quantities[unit] ?? '');
       if (!Number.isFinite(n) || n < 0) {
         setError(t('planner.invalidQty'));
         return;
       }
-      parsed[key] = n;
+      parsed[unit] = n;
     }
     try {
       await generate.mutateAsync({ stageCode, quantities: parsed });
@@ -119,21 +126,29 @@ export function PlannerPage() {
             </label>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {SUPERSTRUCTURE_QTY.map(({ key, labelKey }) => (
-              <label key={key} className="block">
-                <span className="gov-label">{t(labelKey)}</span>
-                <input
-                  type="number"
-                  min={0}
-                  step={key === 'm3' ? 'any' : 1}
-                  className="gov-input mt-1"
-                  value={quantities[key]}
-                  onChange={(e) => setQuantities((q) => ({ ...q, [key]: e.target.value }))}
-                />
-              </label>
-            ))}
-          </div>
+          {unitsPending ? (
+            <p className="text-sm text-ink-3">{t('planner.loadingUnits')}</p>
+          ) : (units ?? []).length === 0 ? (
+            <p className="text-sm text-ink-3">{t('planner.noUnits')}</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {(units ?? []).map((unit) => (
+                <label key={unit} className="block">
+                  <span className="gov-label">
+                    {t(`planner.unit.${unit}`, { defaultValue: humanizeUnit(unit) })}
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={unitStep(unit)}
+                    className="gov-input mt-1"
+                    value={quantities[unit] ?? ''}
+                    onChange={(e) => setQuantities((q) => ({ ...q, [unit]: e.target.value }))}
+                  />
+                </label>
+              ))}
+            </div>
+          )}
 
           {error && (
             <p className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">
@@ -142,7 +157,10 @@ export function PlannerPage() {
           )}
 
           <div className="flex flex-wrap gap-3">
-            <button type="submit" className="gov-btn-primary" disabled={generate.isPending}>
+            <button
+              type="submit" className="gov-btn-primary"
+              disabled={generate.isPending || unitsPending || (units ?? []).length === 0}
+            >
               {generate.isPending ? t('planner.generating') : t('planner.generate')}
             </button>
           </div>
@@ -156,6 +174,14 @@ export function PlannerPage() {
             <p className="text-sm text-ink-2">{t('planner.calendarHint')}</p>
           </div>
           <div className="flex flex-wrap items-end gap-2">
+            {activeProject && (
+              <Link
+                to={`/gov/projects/${activeProject}/checklist`}
+                className="gov-btn-secondary inline-flex items-center justify-center"
+              >
+                {t('checklist.openCta')}
+              </Link>
+            )}
             <label className="block min-w-[12rem]">
               <span className="gov-label">{t('planner.milestone')}</span>
               <input
