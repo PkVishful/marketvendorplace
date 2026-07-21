@@ -24,12 +24,16 @@ export function checkInToJob(
     lat: number;
     lon: number;
     accuracyM: number;
-    photoSha256: string;
+    photo: string;
     deviceId: string;
     reportedAt?: string;
   },
 ) {
   return apiClient.post<{ id: string; distanceM: number }>(`/api/vendor/jobs/${jobId}/check-in`, body);
+}
+
+export function checkinPhotoUrl(jobId: string) {
+  return `/api/vendor/jobs/${jobId}/checkin-photo`;
 }
 
 export function bindSample(

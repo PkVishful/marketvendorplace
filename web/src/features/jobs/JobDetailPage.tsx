@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FeedSkeleton } from '@/components/Skeleton';
 import { getDeviceId } from '@/lib/deviceId';
+import { downscaleToJpegDataUrl } from '@/lib/photoCapture';
 import { randomPhotoSha256Hex } from '@/lib/photoHash';
+import { checkinPhotoUrl } from './api';
 import { generateQrCode, isValidQrCode } from '@/lib/qrCode';
 import type { CustodyEvent } from '@/types/domain';
 import { formatDate, formatDeadline, formatInr } from '@/lib/time';
@@ -56,6 +58,8 @@ export function JobDetailPage() {
   const [areaMm2, setAreaMm2] = useState('22500');
   const [resultQr, setResultQr] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   if (isPending) return <FeedSkeleton />;
 
@@ -82,8 +86,22 @@ export function JobDetailPage() {
   const selectedTest = testCode || defaultTest;
   const selectedItem = job.items.find((i) => i.testCode === selectedTest);
 
+  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setPhoto(await downscaleToJpegDataUrl(file));
+    } catch {
+      setActionError(t('jobs.checkInFailed'));
+    }
+  }
+
   async function handleCheckIn(useDemoGps: boolean) {
     setActionError(null);
+    if (!photo) {
+      setActionError(t('jobs.photoRequired'));
+      return;
+    }
     try {
       let lat = DEMO_GPS.lat;
       let lon = DEMO_GPS.lon;
@@ -101,12 +119,11 @@ export function JobDetailPage() {
         accuracyM = pos.coords.accuracy;
       }
 
-      const photoSha256 = await randomPhotoSha256Hex();
       await checkIn.mutateAsync({
         lat,
         lon,
         accuracyM,
-        photoSha256,
+        photo,
         deviceId: getDeviceId(),
         reportedAt: new Date().toISOString(),
       });
@@ -240,10 +257,36 @@ export function JobDetailPage() {
         <div className="gov-card mt-8 border-l-4 border-l-green p-6">
           <h3 className="font-display text-lg font-bold">{t('jobs.checkInTitle')}</h3>
           <p className="mt-2 text-sm text-ink-2">{t('jobs.checkInBody')}</p>
+          <div className="mt-4">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="sr-only"
+              onChange={(e) => void onPickPhoto(e)}
+            />
+            {photo ? (
+              <div className="flex items-center gap-3">
+                <img src={photo} alt={t('jobs.checkInPhoto')} className="h-20 w-20 rounded-md object-cover" />
+                <button
+                  type="button"
+                  className="gov-btn-secondary text-xs"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  {t('jobs.retakePhoto')}
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="gov-btn-secondary" onClick={() => fileRef.current?.click()}>
+                {t('jobs.takePhoto')}
+              </button>
+            )}
+          </div>
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"
-              disabled={checkIn.isPending}
+              disabled={checkIn.isPending || !photo}
               onClick={() => void handleCheckIn(true)}
               className="gov-btn-primary"
             >
@@ -251,7 +294,7 @@ export function JobDetailPage() {
             </button>
             <button
               type="button"
-              disabled={checkIn.isPending}
+              disabled={checkIn.isPending || !photo}
               onClick={() => void handleCheckIn(false)}
               className="gov-btn-secondary"
             >
@@ -268,6 +311,11 @@ export function JobDetailPage() {
             {t('jobs.distance', { meters: Math.round(job.checkIn.distanceM) })} ·{' '}
             {formatDeadline(job.checkIn.serverAt)}
           </p>
+          <img
+            src={checkinPhotoUrl(id)}
+            alt={t('jobs.checkInPhoto')}
+            className="mt-3 h-32 w-32 rounded-md object-cover"
+          />
         </div>
       )}
 
