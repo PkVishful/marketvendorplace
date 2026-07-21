@@ -14,6 +14,7 @@ import {
 } from './auth.mjs';
 import { saveKycDocument, readKycDocument } from './kyc-upload.mjs';
 import { saveContractorDocument, readContractorDocument } from './kyc-upload.mjs';
+import { saveCheckinPhoto, readCheckinPhoto, sniffImageType } from './checkin-photo.mjs';
 import { loadConfig } from './env.mjs';
 import { selectProvider } from './otp/provider.mjs';
 import { shapeChecklist, deriveReqStatus } from './catalog.mjs';
@@ -698,24 +699,44 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
   app.post('/api/vendor/jobs/:id/check-in', async (req, res) => {
     const userId = requireUser(req, res);
     if (!userId) return;
-    const { lat, lon, accuracyM, photoSha256, deviceId, reportedAt } = req.body || {};
-    if (lat == null || lon == null || !photoSha256 || !deviceId) {
+    const { lat, lon, accuracyM, photo, deviceId, reportedAt } = req.body || {};
+    if (lat == null || lon == null || !photo || !deviceId) {
       return res.status(400).json({ error: 'missing_checkin_fields' });
     }
-    const bytes = Buffer.from(photoSha256, 'hex');
-    if (bytes.length !== 32) return res.status(400).json({ error: 'invalid_photo_hash' });
     try {
+      // Store the real photo and hash it server-side; the client cannot forge a
+      // hash that mismatches the stored image.
+      const { sha256 } = await saveCheckinPhoto(req.params.id, photo);
       const row = await withUserSession(userId, async (client) => {
         const q = await client.query(
           `select id, distance_m as "distanceM", job_id as "jobId"
              from eworks.check_in($1, $2, $3, $4, $5, $6, coalesce($7::timestamptz, now()))`,
-          [req.params.id, lat, lon, accuracyM ?? 10, deviceId, bytes, reportedAt ?? null],
+          [req.params.id, lat, lon, accuracyM ?? 10, deviceId, sha256, reportedAt ?? null],
         );
         return q.rows[0];
       });
       res.json(row);
     } catch (err) {
       res.status(400).json({ error: 'checkin_failed', detail: err.message });
+    }
+  });
+
+  app.get('/api/vendor/jobs/:id/checkin-photo', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const visible = await withUserSession(userId, async (client) => {
+        const q = await client.query(`select 1 from eworks.test_jobs where id = $1`, [req.params.id]);
+        return q.rowCount > 0;
+      });
+      if (!visible) return res.status(404).json({ error: 'not_found' });
+      const bytes = await readCheckinPhoto(req.params.id);
+      if (!bytes) return res.status(404).json({ error: 'no_photo' });
+      res.setHeader('content-type', sniffImageType(bytes));
+      res.setHeader('cache-control', 'private, max-age=60');
+      res.send(bytes);
+    } catch (err) {
+      res.status(400).json({ error: 'photo_failed', detail: err.message });
     }
   });
 
@@ -1427,6 +1448,40 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
       }
     } catch (err) {
       res.status(400).json({ error: 'verify_failed', detail: err.message });
+    }
+  });
+
+  app.get('/api/gov/orders/:id/checkin-photo', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const resolved = await withUserSession(userId, async (client) => {
+        // Viewing site evidence is a read, so gate on order.read (not verify).
+        const allowed = await client.query(
+          `select exists (
+             select 1 from eworks.test_orders o
+               join eworks.org_units ou on ou.id = o.org_unit_id
+              where o.id = $1
+                and eworks.has_permission('order.read', ou.path)
+           ) as ok`,
+          [req.params.id],
+        );
+        if (!allowed.rows[0].ok) return { denied: true };
+        const j = await client.query(
+          `select id from eworks.test_jobs where order_id = $1 limit 1`,
+          [req.params.id],
+        );
+        return { jobId: j.rows[0]?.id ?? null };
+      });
+      if (resolved.denied) return res.status(403).json({ error: 'permission_denied' });
+      if (!resolved.jobId) return res.status(404).json({ error: 'no_job' });
+      const bytes = await readCheckinPhoto(resolved.jobId);
+      if (!bytes) return res.status(404).json({ error: 'no_photo' });
+      res.setHeader('content-type', sniffImageType(bytes));
+      res.setHeader('cache-control', 'private, max-age=60');
+      res.send(bytes);
+    } catch (err) {
+      res.status(400).json({ error: 'photo_failed', detail: err.message });
     }
   });
 
