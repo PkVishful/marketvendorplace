@@ -15,6 +15,7 @@ import {
 import { saveKycDocument, readKycDocument } from './kyc-upload.mjs';
 import { saveContractorDocument, readContractorDocument } from './kyc-upload.mjs';
 import { saveCheckinPhoto, readCheckinPhoto, sniffImageType } from './checkin-photo.mjs';
+import { saveCertificate, readCertificate } from './certificate-file.mjs';
 import { loadConfig } from './env.mjs';
 import { selectProvider } from './otp/provider.mjs';
 import { shapeChecklist, deriveReqStatus } from './catalog.mjs';
@@ -306,6 +307,23 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
       );
       if (q.rowCount === 0) return res.json({ found: false });
       res.json({ found: true, ...q.rows[0] });
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
+  app.get('/api/public/certificates/:id/file', async (req, res) => {
+    try {
+      const q = await pool.query(
+        `select job_id as "jobId" from eworks.certificates where id = $1`,
+        [req.params.id],
+      );
+      if (q.rowCount === 0) return res.status(404).json({ error: 'not_found' });
+      const bytes = await readCertificate(q.rows[0].jobId);
+      if (!bytes) return res.status(404).json({ error: 'no_certificate' });
+      res.setHeader('content-type', 'application/pdf');
+      res.setHeader('content-disposition', 'inline; filename="certificate.pdf"');
+      res.send(bytes);
     } catch (err) {
       res.status(500).json({ error: 'query_failed', detail: err.message });
     }
@@ -812,24 +830,42 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
   app.post('/api/vendor/jobs/:id/certificate', async (req, res) => {
     const userId = requireUser(req, res);
     if (!userId) return;
-    const { storagePath, sha256 } = req.body || {};
-    if (!storagePath || !sha256) {
-      return res.status(400).json({ error: 'path_and_hash_required' });
-    }
-    const bytes = Buffer.from(sha256, 'hex');
-    if (bytes.length !== 32) return res.status(400).json({ error: 'invalid_sha256' });
+    const { file } = req.body || {};
+    if (!file) return res.status(400).json({ error: 'file_required' });
     try {
+      // Store the real PDF and hash it server-side; the recorded sha256 is the
+      // hash of the actual document, so the public verify hash is genuine.
+      const { sha256, storagePath } = await saveCertificate(req.params.id, file);
       const row = await withUserSession(userId, async (client) => {
         const q = await client.query(
           `insert into eworks.certificates (job_id, storage_path, sha256, uploaded_by)
            values ($1, $2, $3, eworks.current_user_id())
            returning id, storage_path as "storagePath", signature_verified as "signatureVerified",
                      issued_at as "issuedAt"`,
-          [req.params.id, storagePath, bytes],
+          [req.params.id, storagePath, sha256],
         );
         return q.rows[0];
       });
       res.status(201).json(row);
+    } catch (err) {
+      res.status(400).json({ error: 'certificate_failed', detail: err.message });
+    }
+  });
+
+  app.get('/api/vendor/jobs/:id/certificate/file', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const visible = await withUserSession(userId, async (client) => {
+        const q = await client.query(`select 1 from eworks.test_jobs where id = $1`, [req.params.id]);
+        return q.rowCount > 0;
+      });
+      if (!visible) return res.status(404).json({ error: 'not_found' });
+      const bytes = await readCertificate(req.params.id);
+      if (!bytes) return res.status(404).json({ error: 'no_certificate' });
+      res.setHeader('content-type', 'application/pdf');
+      res.setHeader('content-disposition', 'inline; filename="certificate.pdf"');
+      res.send(bytes);
     } catch (err) {
       res.status(400).json({ error: 'certificate_failed', detail: err.message });
     }
@@ -1482,6 +1518,38 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
       res.send(bytes);
     } catch (err) {
       res.status(400).json({ error: 'photo_failed', detail: err.message });
+    }
+  });
+
+  app.get('/api/gov/orders/:id/certificate/file', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const resolved = await withUserSession(userId, async (client) => {
+        const allowed = await client.query(
+          `select exists (
+             select 1 from eworks.test_orders o
+               join eworks.org_units ou on ou.id = o.org_unit_id
+              where o.id = $1 and eworks.has_permission('order.read', ou.path)
+           ) as ok`,
+          [req.params.id],
+        );
+        if (!allowed.rows[0].ok) return { denied: true };
+        const j = await client.query(
+          `select id from eworks.test_jobs where order_id = $1 limit 1`,
+          [req.params.id],
+        );
+        return { jobId: j.rows[0]?.id ?? null };
+      });
+      if (resolved.denied) return res.status(403).json({ error: 'permission_denied' });
+      if (!resolved.jobId) return res.status(404).json({ error: 'no_job' });
+      const bytes = await readCertificate(resolved.jobId);
+      if (!bytes) return res.status(404).json({ error: 'no_certificate' });
+      res.setHeader('content-type', 'application/pdf');
+      res.setHeader('content-disposition', 'inline; filename="certificate.pdf"');
+      res.send(bytes);
+    } catch (err) {
+      res.status(400).json({ error: 'certificate_failed', detail: err.message });
     }
   });
 
