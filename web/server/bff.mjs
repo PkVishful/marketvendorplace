@@ -455,10 +455,19 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
           [req.params.id],
         );
 
+        const jobQ = await client.query(
+          `select j.id from eworks.test_jobs j
+             join eworks.vendors v on v.id = j.vendor_id
+            where j.order_id = $1 and v.owner_user_id = eworks.current_user_id()
+            limit 1`,
+          [req.params.id],
+        );
+
         return {
           ...orderQ.rows[0],
           items: itemsQ.rows,
           myBid: bidQ.rows[0] ?? null,
+          jobId: jobQ.rows[0]?.id ?? null,
         };
       });
 
@@ -517,13 +526,43 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     }
   });
 
+  app.post('/api/vendor/orders/:id/accept', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const row = await withUserSession(userId, async (client) => {
+        try {
+          const q = await client.query(
+            `select id, status from eworks.assign_job($1)`,
+            [req.params.id],
+          );
+          return q.rows[0];
+        } catch (err) {
+          // Already accepted (unique(order_id)) -> return the existing job so
+          // the client can just route to it. Any other error propagates.
+          if (err.code === '23505') {
+            const existing = await client.query(
+              `select id, status from eworks.test_jobs where order_id = $1`,
+              [req.params.id],
+            );
+            if (existing.rowCount > 0) return existing.rows[0];
+          }
+          throw err;
+        }
+      });
+      res.status(201).json({ jobId: row.id, status: row.status });
+    } catch (err) {
+      res.status(400).json({ error: 'accept_failed', detail: err.message });
+    }
+  });
+
   // --- vendor field jobs (RLS-scoped) ----------------------------------------
   app.get('/api/vendor/jobs', async (req, res) => {
     const userId = requireUser(req, res);
     if (!userId) return;
     try {
-      const rows = await withUserSession(userId, async (client) => {
-        const q = await client.query(
+      const data = await withUserSession(userId, async (client) => {
+        const jobsQ = await client.query(
           `select
              j.id,
              j.status,
@@ -537,9 +576,22 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
            join eworks.test_orders o on o.id = j.order_id
           order by j.created_at desc`,
         );
-        return q.rows;
+        // Orders this vendor won but has not yet accepted into a job.
+        // user_won_order() gates visibility to the winner only.
+        const awaitingQ = await client.query(
+          `select
+             o.id            as "orderId",
+             o.milestone,
+             o.required_by   as "requiredBy"
+           from eworks.test_orders o
+          where o.status = 'AWARDED'
+            and eworks.user_won_order(o.id)
+            and not exists (select 1 from eworks.test_jobs j where j.order_id = o.id)
+          order by o.required_by asc nulls last`,
+        );
+        return { jobs: jobsQ.rows, awaiting: awaitingQ.rows };
       });
-      res.json(rows);
+      res.json(data);
     } catch (err) {
       res.status(500).json({ error: 'query_failed', detail: err.message });
     }
