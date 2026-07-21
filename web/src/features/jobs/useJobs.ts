@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CustodyEvent } from '@/types/domain';
 import {
+  acceptAward,
   advanceDevJob,
   bindSample,
   checkInToJob,
@@ -14,6 +15,17 @@ import {
 
 export function useFieldJobs() {
   return useQuery({ queryKey: jobKeys.all, queryFn: fetchFieldJobs });
+}
+
+export function useAcceptAward() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: acceptAward,
+    onSuccess: (_data, orderId) => {
+      void qc.invalidateQueries({ queryKey: jobKeys.all });
+      void qc.invalidateQueries({ queryKey: ['vendor-orders', orderId] });
+    },
+  });
 }
 
 export function useFieldJob(id: string) {

@@ -18,6 +18,7 @@ import type {
 export const govKeys = {
   projects: ['gov', 'projects'] as const,
   stages: ['gov', 'stages'] as const,
+  stageUnits: (stageCode: string) => ['gov', 'stages', stageCode, 'units'] as const,
   requirements: (projectId: string) => ['gov', 'requirements', projectId] as const,
   orders: (projectId?: string) => ['gov', 'orders', projectId ?? 'all'] as const,
   orderDetail: (id: string) => ['gov', 'orders', id] as const,
@@ -37,6 +38,10 @@ export function fetchGovProjects() {
 
 export function fetchConstructionStages() {
   return apiClient.get<ConstructionStage[]>('/api/gov/stages');
+}
+
+export function fetchStageUnits(stageCode: string) {
+  return apiClient.get<{ units: string[] }>(`/api/gov/stages/${stageCode}/units`);
 }
 
 export function fetchProjectRequirements(projectId: string) {
@@ -109,6 +114,22 @@ export function fetchGovVendors(status = 'SUBMITTED') {
 
 export function fetchGovVendor(id: string) {
   return apiClient.get<GovVendorDetail>(`/api/gov/vendors/${id}`);
+}
+
+export function registerGovVendor(body: {
+  legalName: string;
+  contactName: string;
+  phone: string;
+  email?: string;
+  gstin: string;
+  pan: string;
+  address: string;
+  categories?: string[];
+}) {
+  return apiClient.post<{ id: string; legalName: string; status: string }>(
+    '/api/gov/vendors/register',
+    body,
+  );
 }
 
 export function reviewGovVendor(id: string, decision: 'approve' | 'reject') {

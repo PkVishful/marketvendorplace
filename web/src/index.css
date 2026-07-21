@@ -154,6 +154,29 @@ body {
   }
 }
 
+/* Print: only the sheet marked .print-sheet lands on paper — the app shell
+   (nav, header, buttons marked print:hidden) is suppressed. Used by the
+   project "Required Tests" checklist. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-sheet,
+  .print-sheet * {
+    visibility: visible;
+  }
+  .print-sheet {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+  }
+  .print-sheet .gov-card {
+    box-shadow: none;
+    border-color: #bbb;
+  }
+}
+
 @layer components {
   .gov-stripe {
     height: 3px;
@@ -202,6 +225,33 @@ body {
 
   .gov-label {
     @apply text-xs font-semibold uppercase tracking-wider text-ink-3;
+  }
+
+  /* Small inline status/label chips used across the test checklist screens. */
+  .chip {
+    @apply inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold;
+    border-color: var(--line);
+    color: var(--ink-2);
+  }
+  .chip-nabl {
+    border-color: color-mix(in srgb, var(--navy) 30%, transparent);
+    background: var(--surface-2);
+    color: var(--navy);
+  }
+  .chip-ok {
+    border-color: color-mix(in srgb, var(--success) 40%, transparent);
+    background: color-mix(in srgb, var(--success) 12%, transparent);
+    color: var(--success);
+  }
+  .chip-danger {
+    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    color: var(--danger);
+  }
+  .chip-muted {
+    border-color: var(--hair);
+    background: var(--surface-2);
+    color: var(--ink-3);
   }
 
   .gov-stat {
@@ -368,6 +418,155 @@ body {
   .dash-home > * + * {
     animation: sign-in-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-delay: 0.06s;
+  }
+
+  .rfq-breadcrumb {
+    @apply flex flex-wrap items-center gap-1.5 text-xs text-slate;
+  }
+  .rfq-breadcrumb a {
+    @apply font-medium text-brand hover:underline;
+  }
+
+  .rfq-kpi {
+    @apply p-4 sm:p-5;
+  }
+  .rfq-kpi-label {
+    @apply text-[10px] font-bold uppercase tracking-wider text-ink-3;
+  }
+  .rfq-kpi-value {
+    @apply mt-1 font-display text-2xl font-bold tabular-nums text-ink;
+  }
+  .rfq-kpi-hint {
+    @apply mt-1 text-xs text-slate;
+  }
+  .rfq-kpi-icon {
+    @apply grid h-10 w-10 place-items-center rounded-xl;
+  }
+  .rfq-kpi-icon-brand {
+    background: var(--brand-tint);
+    color: var(--brand);
+  }
+  .rfq-kpi-icon-accent {
+    background: var(--saffron-soft);
+    color: var(--accent-dark);
+  }
+  .rfq-kpi-icon-success {
+    background: var(--success-bg);
+    color: var(--success);
+  }
+  .rfq-kpi-icon-warn {
+    background: var(--warning-bg);
+    color: var(--warning);
+  }
+
+  .rfq-meta-grid {
+    @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-4;
+  }
+  .rfq-meta-cell {
+    @apply rounded-xl border border-line bg-surface-2 px-3 py-2.5;
+  }
+  .rfq-meta-cell dt {
+    @apply text-[10px] font-bold uppercase tracking-wider text-ink-3;
+  }
+  .rfq-meta-cell dd {
+    @apply mt-1 text-sm font-semibold text-ink;
+  }
+
+  .rfq-table thead {
+    @apply bg-surface-2 text-[10px] uppercase tracking-wider text-ink-3;
+  }
+  .rfq-table th {
+    @apply px-4 py-3 font-semibold whitespace-nowrap;
+  }
+  .rfq-table td {
+    @apply border-t border-line px-4 py-3 align-middle;
+  }
+  .rfq-table tbody tr:hover {
+    background: color-mix(in srgb, var(--surface-2) 50%, transparent);
+  }
+
+  .rfq-chip {
+    @apply inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide;
+  }
+  .rfq-chip-good {
+    background: var(--success-bg);
+    color: var(--success);
+  }
+  .rfq-chip-info {
+    background: var(--info-bg);
+    color: var(--info);
+  }
+  .rfq-chip-warn {
+    background: var(--warning-bg);
+    color: var(--warning);
+  }
+  .rfq-chip-neutral {
+    @apply bg-surface-2 text-slate;
+  }
+
+  .rfq-priority {
+    @apply inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase;
+  }
+  .rfq-priority-critical {
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+  .rfq-priority-high {
+    background: var(--warning-bg);
+    color: var(--warning);
+  }
+  .rfq-priority-medium {
+    background: var(--info-bg);
+    color: var(--info);
+  }
+  .rfq-priority-low {
+    @apply bg-surface-2 text-slate;
+  }
+
+  .rfq-timeline-step {
+    @apply relative;
+  }
+  .rfq-timeline-dot {
+    @apply absolute left-0 top-1 h-3 w-3 rounded-full border-2 border-line bg-surface;
+  }
+  .rfq-timeline-line {
+    @apply absolute left-[5px] top-4 h-[calc(100%-8px)] w-0.5 bg-line;
+  }
+  .rfq-timeline-active .rfq-timeline-dot {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+  .rfq-timeline-done .rfq-timeline-dot {
+    border-color: var(--success);
+    background: var(--success);
+  }
+
+  .rfq-activity-icon {
+    @apply mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg;
+  }
+  .rfq-activity-row:hover td {
+    background: color-mix(in srgb, var(--surface-2) 65%, transparent);
+  }
+  .rfq-activity-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  .rfq-activity-system {
+    background: var(--brand-tint);
+  }
+  .rfq-activity-document {
+    background: var(--info-bg);
+  }
+  .rfq-activity-reminder {
+    background: var(--warning-bg);
+  }
+  .rfq-activity-invitation {
+    background: var(--success-bg);
+  }
+  .rfq-activity-lab {
+    background: var(--saffron-soft);
+  }
+  .rfq-activity-comment {
+    background: var(--surface-2);
   }
 }
 

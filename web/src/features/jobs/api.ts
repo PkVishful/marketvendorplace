@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/apiClient';
-import type { CustodyEvent, FieldJobDetail, FieldJobSummary } from '@/types/domain';
+import type { CustodyEvent, FieldJobDetail, FieldJobsResponse } from '@/types/domain';
 
 export const jobKeys = {
   all: ['vendor', 'jobs'] as const,
@@ -7,11 +7,15 @@ export const jobKeys = {
 };
 
 export function fetchFieldJobs() {
-  return apiClient.get<FieldJobSummary[]>('/api/vendor/jobs');
+  return apiClient.get<FieldJobsResponse>('/api/vendor/jobs');
 }
 
 export function fetchFieldJob(id: string) {
   return apiClient.get<FieldJobDetail>(`/api/vendor/jobs/${id}`);
+}
+
+export function acceptAward(orderId: string) {
+  return apiClient.post<{ jobId: string; status: string }>(`/api/vendor/orders/${orderId}/accept`, {});
 }
 
 export function checkInToJob(
@@ -20,12 +24,16 @@ export function checkInToJob(
     lat: number;
     lon: number;
     accuracyM: number;
-    photoSha256: string;
+    photo: string;
     deviceId: string;
     reportedAt?: string;
   },
 ) {
   return apiClient.post<{ id: string; distanceM: number }>(`/api/vendor/jobs/${jobId}/check-in`, body);
+}
+
+export function checkinPhotoUrl(jobId: string) {
+  return `/api/vendor/jobs/${jobId}/checkin-photo`;
 }
 
 export function bindSample(
@@ -59,8 +67,12 @@ export function recordTestResult(body: {
   }>('/api/vendor/results', body);
 }
 
-export function uploadJobCertificate(jobId: string, body: { storagePath: string; sha256: string }) {
+export function uploadJobCertificate(jobId: string, body: { file: string }) {
   return apiClient.post(`/api/vendor/jobs/${jobId}/certificate`, body);
+}
+
+export function certificateFileUrl(jobId: string) {
+  return `/api/vendor/jobs/${jobId}/certificate/file`;
 }
 
 export function advanceDevJob(jobId: string) {

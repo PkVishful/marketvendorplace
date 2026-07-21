@@ -17,10 +17,12 @@ import {
   Moon,
   Plus,
   ScrollText,
+  Settings,
   ShieldCheck,
   Sparkles,
   Star,
   Sun,
+  Tags,
   TestTube2,
   Trophy,
   Upload,
@@ -36,6 +38,7 @@ export const ICON_SIZE_KPI = 'h-5 w-5';
 const NAV_ICON_MAP: Record<string, LucideIcon> = {
   '/gov': LayoutDashboard,
   '/gov/planner': CalendarDays,
+  '/gov/checklist': TestTube2,
   '/gov/orders': ClipboardList,
   '/gov/vendors': Building2,
   '/gov/officers': Users,
@@ -49,6 +52,8 @@ const NAV_ICON_MAP: Record<string, LucideIcon> = {
   '/vendor/jobs': MapPin,
   '/vendor/notifications': Bell,
   '/vendor/earnings': IndianRupee,
+  '/vendor/rates': Tags,
+  '/vendor/tests': TestTube2,
 };
 
 export function NavIcon({ path, className = ICON_SIZE }: { path: string; className?: string }) {
@@ -72,6 +77,7 @@ export {
   Moon,
   Plus,
   ScrollText,
+  Settings,
   ShieldCheck,
   Sparkles,
   Sun,

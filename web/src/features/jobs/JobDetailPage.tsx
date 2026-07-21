@@ -1,10 +1,20 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FeedSkeleton } from '@/components/Skeleton';
 import { getDeviceId } from '@/lib/deviceId';
-import { randomPhotoSha256Hex } from '@/lib/photoHash';
+import { downscaleToJpegDataUrl } from '@/lib/photoCapture';
+import { checkinPhotoUrl, certificateFileUrl } from './api';
 import { generateQrCode, isValidQrCode } from '@/lib/qrCode';
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
+}
 import type { CustodyEvent } from '@/types/domain';
 import { formatDate, formatDeadline, formatInr } from '@/lib/time';
 import { JobStatusPill } from './JobStatusPill';
@@ -56,6 +66,9 @@ export function JobDetailPage() {
   const [areaMm2, setAreaMm2] = useState('22500');
   const [resultQr, setResultQr] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const certRef = useRef<HTMLInputElement>(null);
 
   if (isPending) return <FeedSkeleton />;
 
@@ -82,8 +95,22 @@ export function JobDetailPage() {
   const selectedTest = testCode || defaultTest;
   const selectedItem = job.items.find((i) => i.testCode === selectedTest);
 
+  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setPhoto(await downscaleToJpegDataUrl(file));
+    } catch {
+      setActionError(t('jobs.checkInFailed'));
+    }
+  }
+
   async function handleCheckIn(useDemoGps: boolean) {
     setActionError(null);
+    if (!photo) {
+      setActionError(t('jobs.photoRequired'));
+      return;
+    }
     try {
       let lat = DEMO_GPS.lat;
       let lon = DEMO_GPS.lon;
@@ -101,12 +128,11 @@ export function JobDetailPage() {
         accuracyM = pos.coords.accuracy;
       }
 
-      const photoSha256 = await randomPhotoSha256Hex();
       await checkIn.mutateAsync({
         lat,
         lon,
         accuracyM,
-        photoSha256,
+        photo,
         deviceId: getDeviceId(),
         reportedAt: new Date().toISOString(),
       });
@@ -175,14 +201,13 @@ export function JobDetailPage() {
     }
   }
 
-  async function handleUploadCertificate() {
+  async function onPickCertificate(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
     setActionError(null);
     try {
-      const sha256 = await randomPhotoSha256Hex();
-      await uploadCert.mutateAsync({
-        storagePath: `certs/${id.slice(0, 8)}.pdf`,
-        sha256,
-      });
+      const dataUrl = await readFileAsDataUrl(file);
+      await uploadCert.mutateAsync({ file: dataUrl });
     } catch (err) {
       setActionError(err instanceof Error ? err.message : t('results.certFailed'));
     }
@@ -240,10 +265,36 @@ export function JobDetailPage() {
         <div className="gov-card mt-8 border-l-4 border-l-green p-6">
           <h3 className="font-display text-lg font-bold">{t('jobs.checkInTitle')}</h3>
           <p className="mt-2 text-sm text-ink-2">{t('jobs.checkInBody')}</p>
+          <div className="mt-4">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="sr-only"
+              onChange={(e) => void onPickPhoto(e)}
+            />
+            {photo ? (
+              <div className="flex items-center gap-3">
+                <img src={photo} alt={t('jobs.checkInPhoto')} className="h-20 w-20 rounded-md object-cover" />
+                <button
+                  type="button"
+                  className="gov-btn-secondary text-xs"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  {t('jobs.retakePhoto')}
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="gov-btn-secondary" onClick={() => fileRef.current?.click()}>
+                {t('jobs.takePhoto')}
+              </button>
+            )}
+          </div>
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"
-              disabled={checkIn.isPending}
+              disabled={checkIn.isPending || !photo}
               onClick={() => void handleCheckIn(true)}
               className="gov-btn-primary"
             >
@@ -251,7 +302,7 @@ export function JobDetailPage() {
             </button>
             <button
               type="button"
-              disabled={checkIn.isPending}
+              disabled={checkIn.isPending || !photo}
               onClick={() => void handleCheckIn(false)}
               className="gov-btn-secondary"
             >
@@ -268,6 +319,11 @@ export function JobDetailPage() {
             {t('jobs.distance', { meters: Math.round(job.checkIn.distanceM) })} ·{' '}
             {formatDeadline(job.checkIn.serverAt)}
           </p>
+          <img
+            src={checkinPhotoUrl(id)}
+            alt={t('jobs.checkInPhoto')}
+            className="mt-3 h-32 w-32 rounded-md object-cover"
+          />
         </div>
       )}
 
@@ -461,13 +517,20 @@ export function JobDetailPage() {
         <div className="gov-card mt-8 border-l-4 border-l-navy p-6">
           <h3 className="font-display text-lg font-bold">{t('results.uploadCert')}</h3>
           <p className="mt-2 text-sm text-ink-2">{t('results.uploadCertBody')}</p>
+          <input
+            ref={certRef}
+            type="file"
+            accept="application/pdf"
+            className="sr-only"
+            onChange={(e) => void onPickCertificate(e)}
+          />
           <button
             type="button"
             className="gov-btn-primary mt-4"
             disabled={uploadCert.isPending}
-            onClick={() => void handleUploadCertificate()}
+            onClick={() => certRef.current?.click()}
           >
-            {uploadCert.isPending ? t('states.loading') : t('results.uploadCertBtn')}
+            {uploadCert.isPending ? t('states.loading') : t('results.pickCert')}
           </button>
         </div>
       )}
@@ -475,7 +538,14 @@ export function JobDetailPage() {
       {job.certificate && (
         <div className="gov-card mt-6 border-l-4 border-l-good p-5">
           <p className="gov-label">{t('results.certificate')}</p>
-          <p className="mt-1 text-sm font-semibold">{job.certificate.storagePath}</p>
+          <a
+            href={certificateFileUrl(id)}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-block text-sm font-semibold text-navy hover:underline"
+          >
+            {t('results.viewCert')}
+          </a>
           <p className="mt-1 text-xs text-ink-3">
             {job.certificate.signatureVerified
               ? t('results.certVerified')

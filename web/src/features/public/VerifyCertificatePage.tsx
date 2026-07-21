@@ -83,6 +83,15 @@ function VerifyResult({ certId }: { certId: string }) {
         </div>
       </dl>
 
+      <a
+        href={`/api/public/certificates/${certId}/file`}
+        target="_blank"
+        rel="noreferrer"
+        className="mx-auto block text-center text-sm font-semibold text-navy hover:underline"
+      >
+        {t('verify.downloadCert')}
+      </a>
+
       <p className="text-center text-xs text-ink-3">{t('verify.footnote')}</p>
     </div>
   );

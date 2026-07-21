@@ -46,6 +46,8 @@ export interface Session {
   contractorId?: string | null;
   contractorName?: string | null;
   contractorStatus?: ContractorStatus | null;
+  /** Global role → visible nav tab keys (from eworks.settings.nav_visibility). */
+  navVisibility?: Record<string, string[]> | null;
 }
 
 export function portalHomePath(portal: Portal | undefined): string {
@@ -154,6 +156,7 @@ export interface VendorOrderDetail extends Omit<VendorOrderSummary, 'itemCount'>
   orgName: string;
   items: OrderItemDTO[];
   myBid: VendorBidDTO | null;
+  jobId: string | null;
 }
 
 // One row of the vendor feed.
@@ -250,10 +253,13 @@ export interface GovVendorSummary {
   legalName: string;
   status: string;
   gstin: string;
+  pan?: string;
   nablNo: string | null;
   nablValidUntil: string | null;
   districtName: string;
   createdAt: string;
+  approvedDocCount?: number;
+  uploadedDocCount?: number;
 }
 
 export interface GovVendorDocument {
@@ -263,6 +269,7 @@ export interface GovVendorDocument {
   mimeType: string;
   storagePath: string;
   rejectReason?: string | null;
+  uploadedAt?: string;
 }
 
 export interface GovVendorCapability {
@@ -276,6 +283,48 @@ export interface GovVendorDetail extends GovVendorSummary {
   serviceRadiusKm: number;
   documents: GovVendorDocument[];
   capabilities: GovVendorCapability[];
+  contactName?: string;
+  contactPhone?: string;
+}
+
+// --- vendor rate card ---------------------------------------------------
+
+/** One capability row of the vendor's own rate card; unpriced ⇒ cannot bid. */
+export interface VendorRateRow {
+  testId: string;
+  testCode: string;
+  testName: string;
+  requiresNabl: boolean;
+  isQualifiedToday: boolean;
+  /** Integer paise; null when the vendor has not priced this test today. */
+  currentPricePaise: number | null;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  isPricedToday: boolean;
+}
+
+export interface PriceWindow {
+  pricePaise: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+
+export interface PriceSetResult {
+  id: string;
+  pricePaise: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+
+/** Officer view: current effective price only — never the window history. */
+export interface GovVendorRateRow {
+  testId: string;
+  testCode: string;
+  testName: string;
+  requiresNabl: boolean;
+  isQualifiedToday: boolean;
+  currentPricePaise: number | null;
+  isPricedToday: boolean;
 }
 
 export type CustodyEvent =
@@ -295,6 +344,17 @@ export interface FieldJobSummary {
   lat: number;
   lng: number;
   sampleCount: number;
+}
+
+export interface AwaitingJob {
+  orderId: string;
+  milestone: string;
+  requiredBy: string;
+}
+
+export interface FieldJobsResponse {
+  jobs: FieldJobSummary[];
+  awaiting: AwaitingJob[];
 }
 
 export interface FieldJobDetail extends Omit<FieldJobSummary, 'sampleCount'> {
@@ -507,4 +567,109 @@ export interface GovOfficerRow {
   orgPath: string;
   grantedAt: string;
   expiresAt: string | null;
+}
+
+export interface AdminUserRole {
+  roleCode: string;
+  roleName: string;
+  orgUnitId: string;
+  orgName: string;
+  orgLevel: OrgLevel;
+  orgPath: string;
+  expiresAt?: string | null;
+}
+
+export interface AdminUserRow {
+  userId: string;
+  phone: string;
+  fullName: string;
+  isActive: boolean;
+  roles: AdminUserRole[];
+}
+
+export interface AdminOrgUnit {
+  id: string;
+  name: string;
+  level: OrgLevel;
+  path: string;
+}
+
+export interface AdminRole {
+  code: string;
+  name: string;
+  description: string | null;
+  permissions: string[];
+}
+
+export interface AdminRolesResponse {
+  roles: AdminRole[];
+  permissions: { code: string; description: string }[];
+}
+
+export interface AdminSettingRow {
+  key: string;
+  value: unknown;
+  updatedAt: string;
+}
+
+export interface AdminGrantableRole {
+  code: string;
+  name: string;
+}
+
+// --- Test checklist screens ------------------------------------------------
+
+export interface FrequencyLabel {
+  key: string;
+  params: Record<string, string | number>;
+}
+
+export interface ChecklistTest {
+  code: string;
+  name: string;
+  domain: string;
+  isCode: string | null;
+  requiresNabl: boolean;
+  tatDays: number | null;
+  frequency: FrequencyLabel;
+  repeatsAcrossStages: boolean;
+}
+
+export interface ChecklistStage {
+  code: string;
+  sequence: number;
+  name: string;
+  tests: ChecklistTest[];
+}
+
+export interface CatalogChecklist {
+  stages: ChecklistStage[];
+  crossStage: ChecklistTest[];
+}
+
+export type ProjectChecklistStatus =
+  | 'PLANNED' | 'ORDERED' | 'IN_PROGRESS' | 'CERTIFIED' | 'FAILED';
+
+export interface ProjectChecklistRow {
+  requirementId: string;
+  testCode: string;
+  testName: string;
+  plannedCount: number;
+  status: ProjectChecklistStatus;
+  orderId: string | null;
+  jobId: string | null;
+}
+
+export interface ProjectChecklistStage {
+  code: string;
+  sequence: number;
+  name: string;
+  planned: boolean;
+  rows: ProjectChecklistRow[];
+  certifiedCount: number;
+  totalCount: number;
+}
+
+export interface ProjectChecklist {
+  stages: ProjectChecklistStage[];
 }
