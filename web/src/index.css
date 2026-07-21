@@ -231,21 +231,27 @@ body {
   .chip {
     @apply inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold;
     border-color: var(--line);
-    color: var(--ink-2, var(--ink));
+    color: var(--ink-2);
   }
   .chip-nabl {
-    @apply border-navy/30 bg-surface-2 text-navy;
+    border-color: color-mix(in srgb, var(--navy) 30%, transparent);
+    background: var(--surface-2);
+    color: var(--navy);
   }
   .chip-ok {
-    @apply border-success/40 text-success;
+    border-color: color-mix(in srgb, var(--success) 40%, transparent);
     background: color-mix(in srgb, var(--success) 12%, transparent);
+    color: var(--success);
   }
   .chip-danger {
-    @apply border-danger/40 text-danger;
+    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
     background: color-mix(in srgb, var(--danger) 12%, transparent);
+    color: var(--danger);
   }
   .chip-muted {
-    @apply border-hair bg-surface-2 text-ink-3;
+    border-color: var(--hair);
+    background: var(--surface-2);
+    color: var(--ink-3);
   }
 
   .gov-stat {
