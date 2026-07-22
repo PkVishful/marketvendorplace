@@ -70,6 +70,24 @@ export function resolvePortal(session: Session): Portal | undefined {
   return undefined;
 }
 
+const GOV_ROLE_CODES = new Set([
+  'SITE_ENGINEER', 'EXECUTIVE_ENGINEER', 'DISTRICT_OFFICER',
+  'SUPERINTENDING_ENGINEER', 'AUDITOR', 'HEAD_ADMIN',
+]);
+
+const ORG_LEVEL_ORDER: OrgLevel[] = [
+  'STATE', 'DISTRICT', 'DIVISION', 'CIRCLE', 'SUBDIVISION', 'SECTION',
+];
+
+/** The user's highest-anchored gov role (STATE before DISTRICT before …). */
+export function primaryGovRole(session: Session | undefined): UserRole | undefined {
+  const gov = (session?.roles ?? []).filter((r) => GOV_ROLE_CODES.has(r.code));
+  if (gov.length === 0) return undefined;
+  return gov.reduce((best, r) =>
+    ORG_LEVEL_ORDER.indexOf(r.orgLevel) < ORG_LEVEL_ORDER.indexOf(best.orgLevel) ? r : best,
+  );
+}
+
 // Contractor onboarding + contracts (contractor-facing DTOs).
 export interface ContractorProfile {
   id: string;
