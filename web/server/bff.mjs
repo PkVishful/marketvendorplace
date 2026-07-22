@@ -184,6 +184,13 @@ function computeMilestoneHealth(row) {
   return 'neutral';
 }
 
+// Region score = weighted pass ratio over settled orders (neutral = no signal).
+export function scoreFromHealthCounts({ green, amber, red }) {
+  const denom = green + amber + red;
+  if (denom === 0) return null;
+  return Math.round((100 * (green + 0.5 * amber)) / denom);
+}
+
 function computeVendorTier(row) {
   const passRate = Number(row.passRate);
   if (row.openEscalations > 0) return 'watch';
