@@ -634,7 +634,11 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
              v.legal_name    as "vendorName"
            from eworks.test_jobs j
            join eworks.test_orders o on o.id = j.order_id
-           join eworks.vendors v on v.id = j.vendor_id
+           -- LEFT JOIN: an assigned field technician can read the job (jobs_read)
+           -- but not the vendor row (vendors_read is owner/officer-only). An inner
+           -- join would drop the whole job for them; the job's visibility must be
+           -- governed by jobs_read alone, with vendorName degrading to null.
+           left join eworks.vendors v on v.id = j.vendor_id
           where j.id = $1`,
           [req.params.id],
         );

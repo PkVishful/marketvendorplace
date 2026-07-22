@@ -218,7 +218,7 @@ export function JobDetailPage() {
 
   const stats: [string, string][] = [
     [t('orders.requiredBy'), formatDate(job.requiredBy)],
-    [t('jobs.vendor'), job.vendorName],
+    [t('jobs.vendor'), job.vendorName ?? '—'],
     [t('orders.site'), `${job.lat.toFixed(4)}°, ${job.lng.toFixed(4)}°`],
     [t('jobs.device'), job.deviceId ?? '—'],
   ];
