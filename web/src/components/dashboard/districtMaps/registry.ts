@@ -104,7 +104,7 @@ export function resolveDistrictKey(orgName?: string, orgPath?: string): string {
     }
   }
 
-  return 'coimbatore';
+  return 'tamilnadu';
 }
 
 export function getDistrictMap(orgName?: string, orgPath?: string): DistrictMapDefinition {
@@ -114,4 +114,20 @@ export function getDistrictMap(orgName?: string, orgPath?: string): DistrictMapD
 
 export function listDistrictMapKeys(): string[] {
   return Object.keys(DISTRICT_MAP_REGISTRY).sort();
+}
+
+export interface MapScope {
+  level: 'state' | 'district';
+  key: string;
+  unavailable: boolean;
+}
+
+/** Resolve which map to show and whether we had to fall back. */
+export function resolveMapScope(orgName?: string, orgPath?: string): MapScope {
+  const key = resolveDistrictKey(orgName, orgPath);
+  if (key === 'tamilnadu') {
+    const wasStateInput = isStateScope(orgName, orgPath);
+    return { level: 'state', key, unavailable: !wasStateInput };
+  }
+  return { level: 'district', key, unavailable: false };
 }
