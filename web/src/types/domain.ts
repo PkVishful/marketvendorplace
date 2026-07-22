@@ -359,7 +359,9 @@ export interface FieldJobsResponse {
 
 export interface FieldJobDetail extends Omit<FieldJobSummary, 'sampleCount'> {
   deviceId: string | null;
-  vendorName: string;
+  // Null when the caller (e.g. an assigned field technician) cannot read the
+  // vendor row under RLS — the job still loads; the label just degrades.
+  vendorName: string | null;
   items: { quantity: number; testCode: string; testName: string; testAgesDays: number[] }[];
   samples: {
     id: string;
