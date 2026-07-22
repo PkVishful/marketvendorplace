@@ -75,16 +75,12 @@ const GOV_ROLE_CODES = new Set([
   'SUPERINTENDING_ENGINEER', 'AUDITOR', 'HEAD_ADMIN',
 ]);
 
-const ORG_LEVEL_ORDER: OrgLevel[] = [
-  'STATE', 'DISTRICT', 'DIVISION', 'CIRCLE', 'SUBDIVISION', 'SECTION',
-];
-
 /** The user's highest-anchored gov role (STATE before DISTRICT before …). */
 export function primaryGovRole(session: Session | undefined): UserRole | undefined {
   const gov = (session?.roles ?? []).filter((r) => GOV_ROLE_CODES.has(r.code));
   if (gov.length === 0) return undefined;
   return gov.reduce((best, r) =>
-    ORG_LEVEL_ORDER.indexOf(r.orgLevel) < ORG_LEVEL_ORDER.indexOf(best.orgLevel) ? r : best,
+    ORG_LEVELS.indexOf(r.orgLevel) < ORG_LEVELS.indexOf(best.orgLevel) ? r : best,
   );
 }
 
