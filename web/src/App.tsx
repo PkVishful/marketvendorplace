@@ -30,6 +30,7 @@ import { ChecklistScreen } from '@/features/catalog/ChecklistScreen';
 import { ContractorLayout } from '@/app/ContractorLayout';
 import { ContractsPage } from '@/features/contractor/ContractsPage';
 import { ContractorRegistration } from '@/features/contractor/ContractorRegistration';
+import { NotFoundPage } from '@/app/NotFoundPage';
 
 export function App() {
   return (
@@ -54,6 +55,7 @@ export function App() {
             <Route path="onboarding" element={<OnboardingWizard />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="help" element={<HelpSupportPage />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Route>
 
@@ -63,6 +65,7 @@ export function App() {
             <Route path="registration" element={<ContractorRegistration />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="help" element={<HelpSupportPage />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Route>
 
@@ -82,8 +85,11 @@ export function App() {
             <Route path="audit" element={<AuditLogPage />} />
             <Route path="settings" element={<GovSettingsPage />} />
             <Route path="help" element={<HelpSupportPage />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Route>
+
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );
