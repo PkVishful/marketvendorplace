@@ -17,6 +17,7 @@ const probe = new pg.Pool({ host: process.env.PGHOST, port: Number(process.env.P
 
 let dbAvailable = false;
 let officer = null; // { userId }
+let officers = []; // [{ userId }, ...] distinct district officers, for scope-isolation
 try {
   const q = await probe.query(`
     select ur.user_id as "userId"
@@ -24,6 +25,11 @@ try {
      where ur.role_code = 'DISTRICT_OFFICER' limit 1`);
   officer = q.rows[0] ?? null;
   dbAvailable = Boolean(officer);
+  const qAll = await probe.query(`
+    select distinct ur.user_id as "userId"
+      from eworks.user_roles ur
+     where ur.role_code = 'DISTRICT_OFFICER' limit 5`);
+  officers = qAll.rows;
 } catch { dbAvailable = false; }
 
 const provider = { async send() { return { delivered: true }; } };
@@ -60,5 +66,26 @@ describe.skipIf(!dbAvailable)('GET /api/gov/dashboard/map', () => {
         vendorsActive: expect.any(Number),
       }));
     }
-  });
+  }, 15000);
+
+  // Timeouts bumped: this hits real Postgres 3x (children + orders + KPI
+  // queries) per request, which can run past the 5s default under full-suite
+  // parallel load alongside the other .db.test.mjs files.
+  it.skipIf(officers.length < 2)('scopes regions to each officer\'s own district (no overlap)', async () => {
+    const [a, b] = officers;
+    const cookieA = await login(port, a.userId);
+    const cookieB = await login(port, b.userId);
+    const rA = await fetch(`http://127.0.0.1:${port}/api/gov/dashboard/map`, { headers: { cookie: cookieA } });
+    const rB = await fetch(`http://127.0.0.1:${port}/api/gov/dashboard/map`, { headers: { cookie: cookieB } });
+    expect(rA.status).toBe(200);
+    expect(rB.status).toBe(200);
+    const bodyA = await rA.json();
+    const bodyB = await rB.json();
+    const idsA = new Set(bodyA.regions.map((r) => r.id));
+    const idsB = new Set(bodyB.regions.map((r) => r.id));
+    expect(idsA.size).toBeGreaterThan(0);
+    expect(idsB.size).toBeGreaterThan(0);
+    const overlap = [...idsA].filter((id) => idsB.has(id));
+    expect(overlap).toEqual([]);
+  }, 15000);
 });
