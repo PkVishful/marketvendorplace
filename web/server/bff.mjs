@@ -1765,6 +1765,114 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     }
   });
 
+  app.get('/api/gov/dashboard/map', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const payload = await withUserSession(userId, async (client) => {
+        // Anchor = caller's most senior gov org unit.
+        const anchorQ = await client.query(
+          `select ou.id, ou.name, ou.path::text as path, ou.level,
+                  eworks.org_level_ordinal(ou.level) as ord
+             from eworks.user_roles ur
+             join eworks.org_units ou on ou.id = ur.org_unit_id
+            where ur.user_id = eworks.current_user_id()
+              and ur.role_code in ('SITE_ENGINEER','EXECUTIVE_ENGINEER','DISTRICT_OFFICER',
+                                   'SUPERINTENDING_ENGINEER','AUDITOR','HEAD_ADMIN')
+            order by ord asc limit 1`);
+        const anchor = anchorQ.rows[0];
+        if (!anchor) return { level: 'state', key: 'tamilnadu', regions: [] };
+        const level = anchor.level === 'STATE' ? 'state' : 'district';
+        const key = level === 'state'
+          ? 'tamilnadu'
+          : anchor.path.split('.')[1].toLowerCase();
+
+        // Orders in the subtree, tagged with their immediate-child region path.
+        const ordersQ = await client.query(
+          `select
+             child.id   as "regionId",
+             child.name as "regionName",
+             o.status, o.required_by as "requiredBy",
+             (select count(*)::int from eworks.escalations e
+               where e.order_id = o.id and e.status = 'OPEN') as "openEscalations",
+             pay.status as "paymentStatus",
+             coalesce(cert.signature_verified, false) as "certVerified",
+             (select count(*)::int from eworks.samples s
+                join eworks.test_jobs j on j.id = s.job_id where j.order_id = o.id) as "sampleCount",
+             (select count(*)::int from eworks.test_results r
+                join eworks.test_jobs j on j.id = r.job_id where j.order_id = o.id) as "resultCount",
+             (select bool_and(r.passed) from eworks.test_results r
+                join eworks.test_jobs j on j.id = r.job_id where j.order_id = o.id) as "allPassed"
+           from eworks.test_orders o
+           join eworks.org_units ou on ou.id = o.org_unit_id
+           join eworks.org_units child
+             on child.path = subltree(ou.path, 0, nlevel($1::ltree) + 1)
+           left join eworks.test_jobs j on j.order_id = o.id
+           left join eworks.payments pay on pay.order_id = o.id
+           left join eworks.certificates cert on cert.job_id = j.id
+          where o.status <> 'CANCELLED'
+            and ou.path <@ $1::ltree
+            and nlevel(ou.path) > nlevel($1::ltree)`,
+          [anchor.path]);
+
+        // Roll up health → score per region.
+        const buckets = new Map(); // regionId -> {id,name,green,amber,red,neutral}
+        for (const row of ordersQ.rows) {
+          const b = buckets.get(row.regionId) ??
+            { id: row.regionId, name: row.regionName, green: 0, amber: 0, red: 0, neutral: 0 };
+          b[computeMilestoneHealth(row)] += 1;
+          buckets.set(row.regionId, b);
+        }
+
+        // KPIs per region (subtree-scoped, 30d window).
+        const kpiQ = await client.query(
+          `select
+             child.id as "regionId",
+             count(*) filter (where o.status <> 'FAILED')::int as "openOrders",
+             count(distinct j.id) filter (where j.status is not null
+                and j.status <> 'COMPLETE')::int as "activeJobs",
+             count(distinct r.id) filter (where r.passed = false
+                and r.entered_at >= now() - interval '30 days')::int as "failedTests30d",
+             count(distinct c.id) filter (where c.issued_at >= now() - interval '30 days')::int as "certificates30d",
+             count(distinct oa.vendor_id)::int as "vendorsActive"
+           from eworks.test_orders o
+           join eworks.org_units ou on ou.id = o.org_unit_id
+           join eworks.org_units child
+             on child.path = subltree(ou.path, 0, nlevel($1::ltree) + 1)
+           left join eworks.test_jobs j on j.order_id = o.id
+           left join eworks.test_results r on r.job_id = j.id
+           left join eworks.certificates c on c.job_id = j.id
+           left join eworks.order_award oa on oa.order_id = o.id
+          where o.status <> 'CANCELLED'
+            and ou.path <@ $1::ltree
+            and nlevel(ou.path) > nlevel($1::ltree)
+          group by child.id`,
+          [anchor.path]);
+        const kpiById = new Map(kpiQ.rows.map((k) => [k.regionId, k]));
+
+        const regions = [...buckets.values()].map((b) => {
+          const k = kpiById.get(b.id) ?? {};
+          return {
+            id: b.id,
+            name: b.name,
+            score: scoreFromHealthCounts(b),
+            kpis: {
+              openOrders: k.openOrders ?? 0,
+              activeJobs: k.activeJobs ?? 0,
+              failedTests30d: k.failedTests30d ?? 0,
+              certificates30d: k.certificates30d ?? 0,
+              vendorsActive: k.vendorsActive ?? 0,
+            },
+          };
+        });
+        return { level, key, regions };
+      });
+      res.json(payload);
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
   app.get('/api/gov/analytics', async (req, res) => {
     const userId = requireUser(req, res);
     if (!userId) return;
