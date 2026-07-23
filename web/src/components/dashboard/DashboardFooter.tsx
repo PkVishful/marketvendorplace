@@ -13,7 +13,7 @@ export function DashboardFooter() {
         <div className="grid gap-8 lg:grid-cols-[1.2fr_2fr_auto] lg:items-start">
           <div>
             <div className="flex items-center gap-3">
-              <TnEmblem tone="onDark" className="h-9 w-auto opacity-95" />
+              <TnEmblem tone="onDark" className="h-9 opacity-95" />
               <div>
                 <p className="font-display text-sm font-bold">{t('app.brand')}</p>
                 <p className="text-[11px] text-white/70">{t('shell.deptName')}</p>
@@ -71,7 +71,7 @@ export function DashboardFooter() {
           </div>
 
           <div className="hidden justify-end lg:flex">
-            <TnEmblem tone="onDark" className="h-16 w-auto opacity-90" />
+            <TnEmblem tone="onDark" className="h-16 opacity-90" />
           </div>
         </div>
       </div>

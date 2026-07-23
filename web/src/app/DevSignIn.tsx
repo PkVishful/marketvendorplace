@@ -73,7 +73,7 @@ export function DevSignIn({
           <div className="sign-in-fade-up">
             <div className="gov-stripe mb-6 max-w-[120px] rounded-full" aria-hidden="true" />
             <div className="flex items-center gap-4">
-              <TnEmblem tone="onDark" className="h-16 w-auto sm:h-[4.5rem]" />
+              <TnEmblem tone="onDark" className="h-16 sm:h-[4.5rem]" />
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-accent">
                   {t('app.subtitle')}
