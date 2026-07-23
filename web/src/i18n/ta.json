@@ -270,7 +270,24 @@
     "permissions": "Permissions",
     "navGlobalHelp": "Global role → sidebar tabs matrix.",
     "navDistrictHelp": "District-ல் additional tabs hide செய்யலாம்.",
-    "navDistrictScope": "District: {{district}}"
+    "navDistrictScope": "District: {{district}}",
+    "groupTabsLabel": "வகை வாரியாக வடிகட்டு",
+    "groupAll": "அனைத்து பயனர்கள்",
+    "groupDistrictOfficers": "மாவட்ட அலுவலர்கள்",
+    "groupSiteEngineers": "தள பொறியாளர்கள்",
+    "groupExecutiveEngineers": "செயற்பொறியாளர்கள்",
+    "groupVendors": "ஆய்வக விற்பனையாளர்கள்",
+    "groupFieldTechs": "கள தொழில்நுட்பர்கள்",
+    "groupContractors": "ஒப்பந்ததாரர்கள்",
+    "groupAuditors": "தணிக்கையாளர்கள்",
+    "actions": "செயல்கள்",
+    "edit": "திருத்து",
+    "save": "சேமி",
+    "saving": "சேமிக்கிறது…",
+    "active": "செயலில்",
+    "inactive": "செயலற்ற",
+    "email": "மின்னஞ்சல்",
+    "editFailed": "மாற்றங்களைச் சேமிக்க முடியவில்லை."
   },
   "pricing": {
     "title": "என் கட்டணங்கள்",
@@ -1383,5 +1400,11 @@
     "saving": "சேமிக்கிறது…",
     "reset": "மீட்டமை",
     "saveFailed": "அனுமதிகளைச் சேமிக்க முடியவில்லை."
+  },
+  "pagination": {
+    "label": "பக்கமாக்கல்",
+    "showing": "{{total}} இல் {{from}}–{{to}} காட்டப்படுகிறது",
+    "previous": "முந்தைய பக்கம்",
+    "next": "அடுத்த பக்கம்"
   }
 }

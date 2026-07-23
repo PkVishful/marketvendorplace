@@ -8,15 +8,29 @@ import type {
 } from '@/types/domain';
 
 export const adminKeys = {
-  users: (q: string) => ['admin', 'users', q] as const,
+  users: (q: string, role: string, page: number) => ['admin', 'users', q, role, page] as const,
   orgUnits: ['admin', 'org-units'] as const,
   roles: ['admin', 'roles'] as const,
   settings: ['admin', 'settings'] as const,
   grantableRoles: (orgUnitId: string) => ['admin', 'grantable-roles', orgUnitId] as const,
 };
 
-export const fetchAdminUsers = (q: string) =>
-  apiClient.get<AdminUserRow[]>(`/api/admin/users?q=${encodeURIComponent(q)}`);
+export const updateAdminUser = (
+  userId: string,
+  body: { fullName?: string; phone?: string; email?: string; isActive?: boolean },
+) => apiClient.patch<AdminUserRow>(`/api/admin/users/${userId}`, body);
+
+export interface AdminUsersPage {
+  rows: AdminUserRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export const fetchAdminUsers = (q: string, role: string, page: number) =>
+  apiClient.get<AdminUsersPage>(
+    `/api/admin/users?q=${encodeURIComponent(q)}&role=${encodeURIComponent(role)}&page=${page}`,
+  );
 
 export const fetchAdminOrgUnits = () => apiClient.get<AdminOrgUnit[]>('/api/admin/org-units');
 

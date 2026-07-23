@@ -270,7 +270,24 @@
     "permissions": "Permissions",
     "navGlobalHelp": "Choose which sidebar tabs each role sees globally. Hidden tabs remain permission-gated on direct URL access.",
     "navDistrictHelp": "You may hide additional tabs for roles in your district. Tabs hidden globally cannot be revealed here.",
-    "navDistrictScope": "District scope: {{district}}"
+    "navDistrictScope": "District scope: {{district}}",
+    "groupTabsLabel": "Filter users by type",
+    "groupAll": "All users",
+    "groupDistrictOfficers": "District officers",
+    "groupSiteEngineers": "Site engineers",
+    "groupExecutiveEngineers": "Executive engineers",
+    "groupVendors": "Lab vendors",
+    "groupFieldTechs": "Field technicians",
+    "groupContractors": "Contractors",
+    "groupAuditors": "Auditors",
+    "actions": "Actions",
+    "edit": "Edit",
+    "save": "Save",
+    "saving": "Saving…",
+    "active": "Active",
+    "inactive": "Inactive",
+    "email": "Email",
+    "editFailed": "Could not save changes."
   },
   "pricing": {
     "title": "My rates",
@@ -1383,5 +1400,11 @@
     "saving": "Saving…",
     "reset": "Reset",
     "saveFailed": "Could not save permissions."
+  },
+  "pagination": {
+    "label": "Pagination",
+    "showing": "Showing {{from}}–{{to}} of {{total}}",
+    "previous": "Previous page",
+    "next": "Next page"
   }
 }

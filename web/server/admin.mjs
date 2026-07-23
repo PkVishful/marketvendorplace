@@ -99,12 +99,19 @@ export function registerAdminRoutes(app, { requireUser, withUserSession }) {
     const userId = requireUser(req, res);
     if (!userId) return;
     const search = String(req.query.q ?? '').trim();
+    const roleFilter = String(req.query.role ?? '').trim();
+    // Bounded so a caller cannot ask for the whole table by setting pageSize
+    // to a million and undoing the point of paging.
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 100);
+    const page = Math.max(Number(req.query.page) || 1, 1);
     try {
-      const rows = await withUserSession(userId, async (client) => {
+      const payload = await withUserSession(userId, async (client) => {
         await requireAdminPerm(client, 'user.manage');
         const q = await client.query(
-          `select p.id        as "userId",
+          `with matched as (
+            select p.id        as "userId",
                   p.phone,
+                  p.email,
                   p.full_name as "fullName",
                   p.is_active as "isActive",
                   coalesce(jsonb_agg(jsonb_build_object(
@@ -124,16 +131,34 @@ export function registerAdminRoutes(app, { requireUser, withUserSession }) {
              left join eworks.org_units ou on ou.id = ur.org_unit_id
             where ($1 = ''
                    or p.full_name ilike '%' || $1 || '%'
-                   or p.phone like $1 || '%')
+                   or p.phone like $1 || '%'
+                   or p.email ilike '%' || $1 || '%')
+              -- Role filter via EXISTS, not a join predicate: filtering the
+              -- joined rows would also strip the user's *other* roles out of
+              -- the aggregate above, so a district officer who is also an
+              -- auditor would appear to hold only one role.
+              and ($2 = '' or exists (
+                    select 1 from eworks.user_roles ur2
+                     where ur2.user_id = p.id
+                       and ur2.role_code = $2
+                       and (ur2.expires_at is null or ur2.expires_at > now())))
             group by p.id
             having count(ur.id) filter (where ou.id is not null) > 0
                 or $1 <> ''
-            order by p.full_name`,
-          [search],
+          )
+          select *, count(*) over ()::int as "totalCount"
+            from matched
+           order by "fullName"
+           limit $3 offset $4`,
+          [search, roleFilter, pageSize, (page - 1) * pageSize],
         );
-        return q.rows;
+        // count(*) over() rides along on every row; with zero rows there is no
+        // row to carry it, and zero is the right answer anyway.
+        const total = q.rows[0]?.totalCount ?? 0;
+        const rows = q.rows.map(({ totalCount: _drop, ...row }) => row);
+        return { rows, total, page, pageSize };
       });
-      res.json(rows);
+      res.json(payload);
     } catch (err) {
       res.status(err.httpStatus ?? 500).json({ error: 'admin_users_failed', detail: err.message });
     }
@@ -210,6 +235,70 @@ export function registerAdminRoutes(app, { requireUser, withUserSession }) {
       res.json(rows);
     } catch (err) {
       res.status(err.httpStatus ?? 500).json({ error: 'admin_org_units_failed', detail: err.message });
+    }
+  });
+
+  // Edit an existing officer/user. Roles are managed by the grant/revoke routes
+  // below; this only touches the profile fields.
+  app.patch('/api/admin/users/:id', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const { fullName, phone, email, isActive } = req.body || {};
+
+    if (fullName !== undefined && !String(fullName).trim()) {
+      return res.status(400).json({ error: 'invalid_name', detail: 'full name cannot be empty' });
+    }
+    if (phone !== undefined && !/^\d{10}$/.test(String(phone).replace(/\D/g, ''))) {
+      return res.status(400).json({ error: 'invalid_phone', detail: 'phone must be 10 digits' });
+    }
+    if (email !== undefined && String(email).trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) {
+      return res.status(400).json({ error: 'invalid_email', detail: 'email is not valid' });
+    }
+
+    try {
+      const row = await withUserSession(userId, async (client) => {
+        await requireAdminPerm(client, 'user.manage');
+        const before = await client.query(
+          `select full_name as "fullName", phone, email, is_active as "isActive"
+             from eworks.user_profiles where id = $1`, [req.params.id]);
+        if (before.rowCount === 0) throw httpError(404, 'user not found');
+
+        // coalesce leaves an omitted field untouched, so a partial patch cannot
+        // blank out values the caller never sent.
+        const q = await client.query(
+          `update eworks.user_profiles
+              set full_name = coalesce($2, full_name),
+                  phone     = coalesce($3, phone),
+                  email     = coalesce($4, email),
+                  is_active = coalesce($5, is_active)
+            where id = $1
+            returning id as "userId", full_name as "fullName", phone, email,
+                      is_active as "isActive"`,
+          [
+            req.params.id,
+            fullName === undefined ? null : String(fullName).trim(),
+            phone === undefined ? null : String(phone).replace(/\D/g, ''),
+            email === undefined ? null : (String(email).trim() || null),
+            isActive === undefined ? null : Boolean(isActive),
+          ],
+        );
+        // Audit rows are inserted inline here like every other admin route —
+        // there is no shared helper in this module to reuse.
+        await client.query(
+          `insert into eworks.audit_logs
+             (actor_id, action, entity_type, entity_id, org_path, payload)
+           select eworks.current_user_id(), 'admin.user_update', 'user_profiles', $1,
+                  (select ou.path from eworks.user_roles ur
+                     join eworks.org_units ou on ou.id = ur.org_unit_id
+                    where ur.user_id = $1 order by ou.path limit 1),
+                  jsonb_build_object('before', $2::jsonb, 'after', $3::jsonb)`,
+          [req.params.id, JSON.stringify(before.rows[0]), JSON.stringify(q.rows[0])],
+        );
+        return q.rows[0];
+      });
+      res.json(row);
+    } catch (err) {
+      res.status(err.httpStatus ?? 500).json({ error: 'user_update_failed', detail: err.message });
     }
   });
 

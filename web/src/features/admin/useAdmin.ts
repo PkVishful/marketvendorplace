@@ -12,10 +12,27 @@ import {
   revokeAdminRole,
   setAdminSetting,
   setRolePermissions,
+  updateAdminUser,
 } from './api';
 
-export function useAdminUsers(q: string) {
-  return useQuery({ queryKey: adminKeys.users(q), queryFn: () => fetchAdminUsers(q) });
+export function useUpdateAdminUser() {
+  const invalidate = useInvalidate([['admin', 'users']]);
+  return useMutation({
+    mutationFn: ({ userId, ...body }: {
+      userId: string; fullName?: string; phone?: string; email?: string; isActive?: boolean;
+    }) => updateAdminUser(userId, body),
+    onSuccess: invalidate,
+  });
+}
+
+export function useAdminUsers(q: string, role = '', page = 1) {
+  return useQuery({
+    queryKey: adminKeys.users(q, role, page),
+    queryFn: () => fetchAdminUsers(q, role, page),
+    // Keeps the previous page on screen while the next one loads, instead of
+    // collapsing the table to a skeleton on every page click.
+    placeholderData: (prev) => prev,
+  });
 }
 
 export function useAdminOrgUnits() {

@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FeedSkeleton } from '@/components/Skeleton';
+import { Pagination } from '@/components/Pagination';
+import { UserGroupTabs, type UserGroup } from './UserGroupTabs';
+import { EditUserRow } from './EditUserRow';
 import {
   useAdminOrgUnits,
   useAdminUsers,
@@ -12,13 +15,17 @@ import {
 export function UsersTab() {
   const { t } = useTranslation();
   const [q, setQ] = useState('');
+  const [group, setGroup] = useState<UserGroup>('');
+  const [page, setPage] = useState(1);
+  const [editing, setEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [orgUnitId, setOrgUnitId] = useState('');
   const [roleCode, setRoleCode] = useState('');
 
-  const { data: users, isPending, isError, refetch } = useAdminUsers(q);
+  const { data: usersPage, isPending, isError, refetch } = useAdminUsers(q, group, page);
+  const users = usersPage?.rows;
   const { data: orgUnits } = useAdminOrgUnits();
   const { data: grantable } = useGrantableRoles(orgUnitId);
   const createUser = useCreateAdminUser();
@@ -55,7 +62,7 @@ export function UsersTab() {
         <input
           type="search"
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => { setQ(e.target.value); setPage(1); }}
           placeholder={t('admin.usersSearch')}
           className="gov-input max-w-md"
         />
@@ -135,6 +142,11 @@ export function UsersTab() {
         </form>
       )}
 
+      <UserGroupTabs
+        value={group}
+        onChange={(g) => { setGroup(g); setPage(1); }}
+      />
+
       <div className="gov-card overflow-hidden">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead className="bg-surface-2 text-xs uppercase tracking-wider text-ink-3">
@@ -142,12 +154,24 @@ export function UsersTab() {
               <th className="px-4 py-3">{t('admin.fullName')}</th>
               <th className="px-4 py-3">{t('admin.mobile')}</th>
               <th className="px-4 py-3">{t('admin.rolesCol')}</th>
+              <th className="px-4 py-3 text-right">{t('admin.actions')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {(users ?? []).map((u) => (
+              editing === u.userId ? (
+                <EditUserRow key={u.userId} user={u} onDone={() => setEditing(null)} />
+              ) : (
               <tr key={u.userId}>
-                <td className="px-4 py-3 font-semibold text-ink">{u.fullName}</td>
+                <td className="px-4 py-3 font-semibold text-ink">
+                  {u.fullName}
+                  {u.isActive === false && (
+                    <span className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase text-ink-3">
+                      {t('admin.inactive')}
+                    </span>
+                  )}
+                  <span className="block text-xs font-normal text-ink-3">{u.email || '—'}</span>
+                </td>
                 <td className="px-4 py-3 tabular-nums">{u.phone}</td>
                 <td className="px-4 py-3">
                   <ul className="space-y-1">
@@ -174,11 +198,28 @@ export function UsersTab() {
                     ))}
                   </ul>
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    type="button"
+                    onClick={() => setEditing(u.userId)}
+                    className="text-xs font-semibold text-brand hover:underline"
+                  >
+                    {t('admin.edit')}
+                  </button>
+                </td>
               </tr>
+              )
             ))}
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        total={usersPage?.total ?? 0}
+        page={usersPage?.page ?? 1}
+        pageSize={usersPage?.pageSize ?? 25}
+        onPage={setPage}
+      />
     </div>
   );
 }

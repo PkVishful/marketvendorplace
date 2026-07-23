@@ -598,6 +598,8 @@ export interface AdminUserRole {
 export interface AdminUserRow {
   userId: string;
   phone: string;
+  /** Sign-in identity; null for accounts provisioned before email auth. */
+  email: string | null;
   fullName: string;
   isActive: boolean;
   roles: AdminUserRole[];
