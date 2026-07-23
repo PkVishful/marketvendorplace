@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { usePermission } from '@/auth/permissions';
 import { FeedSkeleton } from '@/components/Skeleton';
 import { useAdminRoles } from './useAdmin';
@@ -41,7 +42,13 @@ export function RolesTab() {
             {(data?.roles ?? []).map((r) => (
               <tr key={r.code}>
                 <td className="px-4 py-3 font-mono text-xs">{r.code}</td>
-                <td className="px-4 py-3">{r.name}</td>
+                <td className="px-4 py-3">
+                  {/* The row is the way into the permission editor — a list
+                      that only prints permissions cannot change them. */}
+                  <Link to={`/gov/settings/roles/${r.code}`} className="text-brand hover:underline">
+                    {r.name || r.code}
+                  </Link>
+                </td>
                 <td className="px-4 py-3 text-xs text-slate">{r.permissions.join(', ') || '—'}</td>
               </tr>
             ))}

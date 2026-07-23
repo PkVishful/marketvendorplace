@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell, RequirePortal } from '@/app/AppShell';
 import { VendorLayout } from '@/app/VendorLayout';
 import { GovLayout, GovHomePage } from '@/app/GovLayout';
@@ -12,7 +12,6 @@ import { VendorRatingsPage } from '@/features/gov/VendorRatingsPage';
 import { AuditLogPage } from '@/features/gov/AuditLogPage';
 import { OfficersPage } from '@/features/gov/OfficersPage';
 import { SettingsPage } from '@/features/account/SettingsPage';
-import { GovSettingsPage } from '@/features/account/GovSettingsPage';
 import { HelpSupportPage } from '@/features/account/HelpSupportPage';
 import { EarningsPage } from '@/features/earnings/EarningsPage';
 import { NotificationsPage } from '@/features/notifications/NotificationsPage';
@@ -27,6 +26,12 @@ import { OnboardingWizard } from '@/features/kyc/OnboardingWizard';
 import { RatesPage } from '@/features/pricing/RatesPage';
 import { ProjectChecklistPage } from '@/features/gov/ProjectChecklistPage';
 import { AreaPage } from '@/features/gov/area/AreaPage';
+import { SettingsShell } from '@/features/admin/SettingsShell';
+import { OrgProfilePage } from '@/features/admin/OrgProfilePage';
+import { RoleDetailPage } from '@/features/admin/RoleDetailPage';
+import { UsersTab } from '@/features/admin/UsersTab';
+import { RolesTab } from '@/features/admin/RolesTab';
+import { NavVisibilityTab } from '@/features/admin/NavVisibilityTab';
 import { ChecklistScreen } from '@/features/catalog/ChecklistScreen';
 import { ContractorLayout } from '@/app/ContractorLayout';
 import { ContractsPage } from '@/features/contractor/ContractsPage';
@@ -86,7 +91,14 @@ export function App() {
             <Route path="ratings" element={<VendorRatingsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="audit" element={<AuditLogPage />} />
-            <Route path="settings" element={<GovSettingsPage />} />
+            <Route path="settings" element={<SettingsShell />}>
+              <Route index element={<Navigate to="organization/profile" replace />} />
+              <Route path="organization/profile" element={<OrgProfilePage />} />
+              <Route path="users" element={<UsersTab />} />
+              <Route path="roles" element={<RolesTab />} />
+              <Route path="roles/:code" element={<RoleDetailPage />} />
+              <Route path="nav-visibility" element={<NavVisibilityTab />} />
+            </Route>
             <Route path="help" element={<HelpSupportPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
