@@ -384,6 +384,51 @@ body {
     overflow: hidden;
   }
 
+  /* Zoho-style chrome: a narrow icon rail plus a dark top bar, so the two
+     read as one dark frame around the light content pane. */
+  .dash-topbar {
+    background: linear-gradient(180deg, var(--brand) 0%, var(--brand-dark) 100%);
+    box-shadow: 0 2px 12px rgba(18, 41, 77, 0.18);
+  }
+
+  .dash-topbar-search {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #fff;
+  }
+
+  .dash-topbar-search::placeholder {
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  .dash-topbar-search:focus {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.35);
+    outline: none;
+  }
+
+  .dash-topbar-select {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #fff;
+    padding-inline: 0.5rem;
+  }
+
+  .dash-topbar-select option {
+    color: var(--ink);
+    background: #fff;
+  }
+
+  /* Two lines max in the rail, so a long label wraps rather than overflowing
+     or being cut mid-word. */
+  .dash-rail-label {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+  }
+
   .dash-sidebar {
     box-shadow: 4px 0 24px rgba(18, 41, 77, 0.2);
     background: linear-gradient(180deg, var(--brand) 0%, var(--brand-dark) 100%);

@@ -139,8 +139,6 @@ export function DashboardShell({
   const isTa = i18n.language === 'ta';
   const settingsPath = `${homePath}/settings`;
   const helpPath = `${homePath}/help`;
-  const portalBadge =
-    portal === 'gov' ? t('nav.govBadge') : portal === 'contractor' ? t('nav.contractorBadge') : t('nav.vendorBadge');
   const pageLabel = (() => {
     if (location.pathname === settingsPath) return t('settings.title');
     if (location.pathname === helpPath) return t('help.title');
@@ -173,22 +171,22 @@ export function DashboardShell({
       )}
 
       <aside
-        className={`dash-sidebar fixed inset-y-0 left-0 z-50 flex h-screen w-[min(100%,17.5rem)] flex-col text-white transition-transform duration-300 ${
+        className={`dash-sidebar fixed inset-y-0 left-0 z-50 flex h-screen w-[5.5rem] flex-col text-white transition-transform duration-300 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         <div className="gov-stripe shrink-0" aria-hidden />
-        <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-4">
-          <Link to={homePath} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:ring-2 focus-visible:ring-accent">
-            <TnEmblem tone="onDark" className="h-10 w-auto" />
-            <span className="min-w-0">
-              <span className="block truncate font-display text-sm font-bold leading-tight">{t('app.brand')}</span>
-              <span className="block truncate text-[10px] text-white/75">{portalBadge}</span>
-            </span>
+        <div className="flex shrink-0 flex-col items-center gap-2 border-b border-white/10 px-2 py-3">
+          <Link
+            to={homePath}
+            className="grid place-items-center rounded-lg focus-visible:ring-2 focus-visible:ring-accent"
+            title={t('app.brand')}
+          >
+            <TnEmblem tone="onDark" className="h-8 w-auto" />
           </Link>
           <button
             type="button"
-            className="grid min-h-[44px] min-w-[44px] place-items-center rounded-lg text-white/80 hover:bg-white/10 lg:hidden"
+            className="grid min-h-[36px] min-w-[36px] place-items-center rounded-lg text-white/80 hover:bg-white/10 lg:hidden"
             aria-label={t('dashboard.closeMenu')}
             onClick={() => setSidebarOpen(false)}
           >
@@ -197,37 +195,37 @@ export function DashboardShell({
         </div>
 
         <nav
-          className="min-h-0 flex-1 overflow-y-auto px-3 py-4"
+          className="min-h-0 flex-1 overflow-y-auto px-1.5 py-2"
           aria-label={portal === 'gov' ? t('nav.gov') : portal === 'contractor' ? t('nav.contractor') : t('nav.vendor')}
         >
-          <ul className="space-y-1">
+          {/* Icon over label in a narrow rail: the label still reads, so the
+              nav stays learnable, but the content pane gets ~12rem back. */}
+          <ul className="space-y-0.5">
             {navItems.map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}
                   end={item.end}
+                  title={item.label}
                   className={({ isActive }) =>
-                    `dash-nav-link flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                    `dash-nav-link flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-center transition ${
                       isActive
-                        ? 'bg-white/15 font-semibold text-white shadow-sm ring-1 ring-white/10'
-                        : 'text-white/75 hover:bg-white/10 hover:text-white'
+                        ? 'bg-white/15 text-white'
+                        : 'text-white/70 hover:bg-white/10 hover:text-white'
                     }`
                   }
                 >
-                  <span
-                    className="grid h-8 w-8 place-items-center rounded-lg bg-white/10 text-white/90"
-                    aria-hidden
-                  >
-                    <NavIcon path={item.to} className="h-[18px] w-[18px] text-current" />
+                  <NavIcon path={item.to} className="h-[20px] w-[20px] text-current" />
+                  <span className="dash-rail-label text-[10px] font-medium leading-tight">
+                    {item.label}
                   </span>
-                  <span className="truncate">{item.label}</span>
                 </NavLink>
               </li>
             ))}
           </ul>
         </nav>
 
-        <div className="shrink-0 space-y-1 border-t border-white/10 px-3 py-3">
+        <div className="shrink-0 space-y-0.5 border-t border-white/10 px-1.5 py-2">
           {notificationHref && (
             <Link
               to={notificationHref}
@@ -247,75 +245,58 @@ export function DashboardShell({
           <NavLink
             to={settingsPath}
             className={({ isActive }) =>
-              `flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${
+              `flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-center transition ${
                 isActive
-                  ? 'bg-white/15 font-semibold text-white'
-                  : 'text-white/75 hover:bg-white/10 hover:text-white'
+                  ? 'bg-white/15 text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
               }`
             }
+            title={t('dashboard.settings')}
           >
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10">
-              <Settings className="h-[18px] w-[18px]" strokeWidth={2} />
+            <Settings className="h-[20px] w-[20px]" strokeWidth={2} />
+            <span className="dash-rail-label text-[10px] font-medium leading-tight">
+              {t('dashboard.settings')}
             </span>
-            {t('dashboard.settings')}
           </NavLink>
           <NavLink
             to={helpPath}
             className={({ isActive }) =>
-              `flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${
+              `flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-center transition ${
                 isActive
-                  ? 'bg-white/15 font-semibold text-white'
-                  : 'text-white/75 hover:bg-white/10 hover:text-white'
+                  ? 'bg-white/15 text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
               }`
             }
+            title={t('dashboard.helpSupport')}
           >
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10">
-              <HelpCircle className="h-[18px] w-[18px]" strokeWidth={2} />
+            <HelpCircle className="h-[20px] w-[20px]" strokeWidth={2} />
+            <span className="dash-rail-label text-[10px] font-medium leading-tight">
+              {t('dashboard.helpSupport')}
             </span>
-            {t('dashboard.helpSupport')}
           </NavLink>
         </div>
 
-        <div className="shrink-0 border-t border-white/10 p-4">
-          <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent text-sm font-bold text-brand-dark">
-              {initials}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-white">{userName ?? '—'}</p>
-              {roleLabel && <p className="mt-0.5 truncate text-xs text-white/70">{roleLabel}</p>}
-              {orgScope && (
-                <p className="mt-1 truncate text-[10px] text-white/55">
-                  {districtId ?? orgScope}
-                </p>
-              )}
-              <p className="mt-1 text-[10px] text-white/45">{t('dashboard.lastLogin')}</p>
-            </div>
-          </div>
-        </div>
       </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:ml-[17.5rem]">
-        <header className="z-30 shrink-0 border-b border-line bg-surface/95 backdrop-blur-md">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:ml-[5.5rem]">
+        <header className="dash-topbar z-30 shrink-0 text-white">
           <div className="flex min-h-[3.75rem] flex-wrap items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:px-8">
             <button
               type="button"
-              className="grid min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-line bg-surface-2 lg:hidden"
+              className="grid min-h-[40px] min-w-[40px] place-items-center rounded-lg text-white/80 hover:bg-white/10 lg:hidden"
               aria-label={t('dashboard.openMenu')}
               onClick={() => setSidebarOpen(true)}
             >
               <Menu className="h-5 w-5" strokeWidth={2} />
             </button>
 
-            <nav aria-label="Breadcrumb" className="hidden shrink-0 items-center gap-1.5 text-sm sm:flex">
-              <Link to={homePath} className="font-semibold text-brand hover:underline">
-                {t('app.brand')}
-              </Link>
-              <span className="text-ink-3" aria-hidden>
-                /
-              </span>
-              <span className="font-medium text-ink-2">{pageLabel}</span>
-            </nav>
+            <Link
+              to={homePath}
+              className="hidden shrink-0 items-center gap-2 rounded-lg text-white sm:flex"
+            >
+              <span className="font-display text-base font-bold leading-none">{t('app.brand')}</span>
+              <span className="text-xs text-white/60">/ {pageLabel}</span>
+            </Link>
 
             <div className="order-last w-full min-w-0 flex-1 sm:order-none sm:mx-4 sm:max-w-xl lg:mx-8">
               <label className="sr-only" htmlFor="dash-search">
@@ -323,7 +304,7 @@ export function DashboardShell({
               </label>
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3"
+                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50"
                   strokeWidth={2}
                   aria-hidden
                 />
@@ -331,22 +312,22 @@ export function DashboardShell({
                   id="dash-search"
                   type="search"
                   placeholder={t('dashboard.searchPlaceholderFull')}
-                  className="gov-input w-full bg-surface-2 pl-10"
+                  className="dash-topbar-search w-full rounded-full py-2 pl-10 pr-4 text-sm"
                 />
               </div>
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-              <span className="hidden items-center gap-1.5 rounded-lg border border-line bg-brand-tint px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand lg:inline-flex">
+              <span className="hidden items-center gap-1.5 text-xs text-white/75 lg:inline-flex" title={orgScope}>
                 <Building2 className="h-3.5 w-3.5" strokeWidth={2.5} />
-                {portalBadge}
+                {districtId ?? orgScope}
               </span>
 
               <select
                 aria-label={t('dev.language')}
                 value={lang}
                 onChange={(e) => onLangChange(e.target.value)}
-                className="gov-input hidden w-auto min-w-[5.5rem] py-2 sm:block"
+                className="dash-topbar-select hidden w-auto min-w-[5rem] rounded-lg py-1.5 text-sm sm:block"
               >
                 {LANGUAGES.map((l) => (
                   <option key={l.code} value={l.code}>
@@ -359,7 +340,7 @@ export function DashboardShell({
                 type="button"
                 aria-label={t('shell.toggleTheme')}
                 onClick={onToggleTheme}
-                className="grid min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-line bg-surface-2 hover:bg-surface-3"
+                className="grid min-h-[40px] min-w-[40px] place-items-center rounded-lg text-white/80 hover:bg-white/10"
               >
                 {theme === 'dark' ? (
                   <Sun className="h-5 w-5" strokeWidth={2} />
@@ -372,7 +353,7 @@ export function DashboardShell({
                 <Link
                   to={notificationHref}
                   aria-label={t('shell.notifications')}
-                  className="relative grid min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-line bg-surface-2 hover:bg-surface-3"
+                  className="relative grid min-h-[40px] min-w-[40px] place-items-center rounded-lg text-white/80 hover:bg-white/10"
                 >
                   <Bell className="h-5 w-5" strokeWidth={2} />
                   {notificationCount > 0 && (
@@ -387,15 +368,20 @@ export function DashboardShell({
                 to={helpPath}
                 aria-label={t('dashboard.helpSupport')}
                 className={({ isActive }) =>
-                  `hidden min-h-[44px] min-w-[44px] place-items-center rounded-xl border sm:grid ${
-                    isActive
-                      ? 'border-brand bg-brand-tint text-brand'
-                      : 'border-line bg-surface-2 hover:bg-surface-3'
+                  `hidden min-h-[40px] min-w-[40px] place-items-center rounded-lg sm:grid ${
+                    isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
                   }`
                 }
               >
                 <HelpCircle className="h-5 w-5" strokeWidth={2} />
               </NavLink>
+
+              <span
+                className="hidden h-8 w-8 shrink-0 place-items-center rounded-full bg-accent text-xs font-bold text-brand-dark sm:grid"
+                aria-hidden
+              >
+                {initials}
+              </span>
 
               <DashboardUserMenu
                 name={userName}
