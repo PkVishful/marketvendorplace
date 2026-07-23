@@ -17,6 +17,8 @@ import { saveContractorDocument, readContractorDocument } from './kyc-upload.mjs
 import { saveCheckinPhoto, readCheckinPhoto, sniffImageType } from './checkin-photo.mjs';
 import { saveCertificate, readCertificate } from './certificate-file.mjs';
 import { loadConfig } from './env.mjs';
+import { computeMilestoneHealth } from './region-health.mjs';
+import { loadChildRegions } from './area-queries.mjs';
 import { selectProvider } from './otp/provider.mjs';
 import { shapeChecklist, deriveReqStatus } from './catalog.mjs';
 import {
@@ -165,56 +167,10 @@ async function fetchFulfillment(client, orderId) {
   };
 }
 
-function computeMilestoneHealth(row) {
-  if (row.status === 'FAILED' || row.openEscalations > 0) return 'red';
-  if (row.paymentStatus === 'RELEASED') return 'green';
-  if (
-    row.status === 'AWARDED' &&
-    row.certVerified &&
-    row.sampleCount > 0 &&
-    row.resultCount >= row.sampleCount &&
-    row.allPassed === true
-  ) {
-    return 'green';
-  }
-  if (row.status === 'DRAFT' || row.status === 'FLOATED' || row.status === 'REVEALING') {
-    return 'neutral';
-  }
-  if (row.status === 'AWARDED') return 'amber';
-  return 'neutral';
-}
-
-// Region score = weighted pass ratio over settled orders (neutral = no signal).
-export function scoreFromHealthCounts({ green, amber, red }) {
-  const denom = green + amber + red;
-  if (denom === 0) return null;
-  return Math.round((100 * (green + 0.5 * amber)) / denom);
-}
-
-// Pure: build the regions[] contract from the caller's immediate children plus
-// the (possibly sparse) health-bucket and KPI lookups. Every child appears —
-// one with no settled orders gets score:null and all-zero KPIs, it never
-// vanishes just because the orders query never touched it.
-export function assembleRegions(children, bucketsById, kpisById) {
-  return children.map((child) => {
-    const b = bucketsById.get(child.id);
-    const bucket = b ?? { green: 0, amber: 0, red: 0, neutral: 0 };
-    const k = kpisById.get(child.id) ?? {};
-    const openOrders = bucket.amber + bucket.red + bucket.neutral;
-    return {
-      id: child.id,
-      name: child.name,
-      score: scoreFromHealthCounts(bucket),
-      kpis: {
-        openOrders,
-        activeJobs: k.activeJobs ?? 0,
-        failedTests30d: k.failedTests30d ?? 0,
-        certificates30d: k.certificates30d ?? 0,
-        vendorsActive: k.vendorsActive ?? 0,
-      },
-    };
-  });
-}
+// Region health scoring lives in region-health.mjs so the area endpoint can
+// share it without an import cycle. Re-exported here because these were part of
+// this module's public surface before the extraction.
+export { assembleRegions, scoreFromHealthCounts } from './region-health.mjs';
 
 function computeVendorTier(row) {
   const passRate = Number(row.passRate);
@@ -1812,83 +1768,7 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
           ? 'tamilnadu'
           : anchor.path.split('.')[1].toLowerCase();
 
-        // Regions = the caller's immediate child org units. Every one of these
-        // must appear in the response, even with zero orders — the RLS policy
-        // (org_units_read) allows subtree reads on the same session client.
-        const childrenQ = await client.query(
-          `select id, name from eworks.org_units
-            where path <@ $1::ltree and nlevel(path) = nlevel($1::ltree) + 1
-            order by name`,
-          [anchor.path]);
-        const children = childrenQ.rows;
-
-        // Orders in the subtree, tagged with their immediate-child region path.
-        const ordersQ = await client.query(
-          `select
-             child.id   as "regionId",
-             child.name as "regionName",
-             o.status, o.required_by as "requiredBy",
-             (select count(*)::int from eworks.escalations e
-               where e.order_id = o.id and e.status = 'OPEN') as "openEscalations",
-             pay.status as "paymentStatus",
-             coalesce(cert.signature_verified, false) as "certVerified",
-             (select count(*)::int from eworks.samples s
-                join eworks.test_jobs j on j.id = s.job_id where j.order_id = o.id) as "sampleCount",
-             (select count(*)::int from eworks.test_results r
-                join eworks.test_jobs j on j.id = r.job_id where j.order_id = o.id) as "resultCount",
-             (select bool_and(r.passed) from eworks.test_results r
-                join eworks.test_jobs j on j.id = r.job_id where j.order_id = o.id) as "allPassed"
-           from eworks.test_orders o
-           join eworks.org_units ou on ou.id = o.org_unit_id
-           join eworks.org_units child
-             on child.path = subltree(ou.path, 0, nlevel($1::ltree) + 1)
-           left join eworks.test_jobs j on j.order_id = o.id
-           left join eworks.payments pay on pay.order_id = o.id
-           left join eworks.certificates cert on cert.job_id = j.id
-          where o.status <> 'CANCELLED'
-            and ou.path <@ $1::ltree
-            -- excludes orders attached directly to the anchor org unit itself
-            -- (there is no immediate-child bucket to roll those up into).
-            and nlevel(ou.path) > nlevel($1::ltree)`,
-          [anchor.path]);
-
-        // Roll up health → score per region.
-        const bucketsById = new Map(); // regionId -> {green,amber,red,neutral}
-        for (const row of ordersQ.rows) {
-          const b = bucketsById.get(row.regionId) ?? { green: 0, amber: 0, red: 0, neutral: 0 };
-          b[computeMilestoneHealth(row)] += 1;
-          bucketsById.set(row.regionId, b);
-        }
-
-        // KPIs per region (subtree-scoped, 30d window). openOrders is derived
-        // in JS from the health bucket (see assembleRegions) — test_orders.status
-        // has no terminal "done" value, so a SQL status filter can't tell settled
-        // orders from open ones.
-        const kpiQ = await client.query(
-          `select
-             child.id as "regionId",
-             count(distinct j.id) filter (where j.status is not null
-                and j.status <> 'COMPLETE' and j.status <> 'CANCELLED')::int as "activeJobs",
-             count(distinct r.id) filter (where r.passed = false
-                and r.entered_at >= now() - interval '30 days')::int as "failedTests30d",
-             count(distinct c.id) filter (where c.issued_at >= now() - interval '30 days')::int as "certificates30d",
-             count(distinct oa.vendor_id)::int as "vendorsActive"
-           from eworks.test_orders o
-           join eworks.org_units ou on ou.id = o.org_unit_id
-           join eworks.org_units child
-             on child.path = subltree(ou.path, 0, nlevel($1::ltree) + 1)
-           left join eworks.test_jobs j on j.order_id = o.id
-           left join eworks.test_results r on r.job_id = j.id
-           left join eworks.certificates c on c.job_id = j.id
-           left join eworks.order_award oa on oa.order_id = o.id
-          where o.status <> 'CANCELLED'
-            and ou.path <@ $1::ltree
-            and nlevel(ou.path) > nlevel($1::ltree)
-          group by child.id`,
-          [anchor.path]);
-        const kpisById = new Map(kpiQ.rows.map((k) => [k.regionId, k]));
-
-        const regions = assembleRegions(children, bucketsById, kpisById);
+        const regions = await loadChildRegions(client, anchor.path);
         return { level, key, regions };
       });
       res.json(payload);
