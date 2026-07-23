@@ -299,7 +299,8 @@
     "loadingActivities": "Loading activity…",
     "activitiesFailed": "Could not load activity.",
     "noActivities": "No recorded activity for this user yet.",
-    "status": "Status"
+    "status": "Status",
+    "view": "View"
   },
   "pricing": {
     "title": "My rates",
@@ -1367,7 +1368,9 @@
     "profile": "Profile",
     "users": "Users",
     "roles": "Roles",
-    "navVisibility": "Tab visibility"
+    "navVisibility": "Tab visibility",
+    "hierarchy": "Hierarchy levels",
+    "orgUnits": "Organisation units"
   },
   "orgProfile": {
     "title": "Organization Profile",
@@ -1438,5 +1441,27 @@
     "colCerts": "Certificates",
     "colScore": "Score",
     "showingCount": "Showing {{shown}} of {{total}} districts"
+  },
+  "hierarchy": {
+    "title": "Hierarchy levels",
+    "subtitle": "The organisation levels this deployment is built on, from state down to site.",
+    "loading": "Loading hierarchy…",
+    "loadFailed": "Could not load the hierarchy.",
+    "unitCount": "{{count}} units",
+    "fixedNote": "Levels are fixed in the database: a unit's level must be exactly one step below its parent. Changing them requires a migration, so they are shown here rather than edited."
+  },
+  "orgUnits": {
+    "title": "Organisation units",
+    "subtitle": "{{count}} units across the hierarchy.",
+    "loading": "Loading units…",
+    "loadFailed": "Could not load organisation units.",
+    "searchPlaceholder": "Search name or path…",
+    "searchLabel": "Search organisation units",
+    "levelFilter": "Filter by level",
+    "allLevels": "All levels",
+    "showing": "Showing {{shown}} of {{total}}",
+    "colName": "Name",
+    "colLevel": "Level",
+    "colPath": "Path"
   }
 }

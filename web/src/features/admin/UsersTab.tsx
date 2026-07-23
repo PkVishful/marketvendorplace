@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { FeedSkeleton } from '@/components/Skeleton';
 import { Pagination } from '@/components/Pagination';
 import { UserGroupTabs, type UserGroup } from './UserGroupTabs';
-import { EditUserRow } from './EditUserRow';
 import { UserDetailPane } from './UserDetailPane';
 import {
   useAdminOrgUnits,
@@ -18,7 +17,6 @@ export function UsersTab() {
   const [q, setQ] = useState('');
   const [group, setGroup] = useState<UserGroup>('');
   const [page, setPage] = useState(1);
-  const [editing, setEditing] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -163,9 +161,6 @@ export function UsersTab() {
           </thead>
           <tbody className="divide-y divide-line">
             {(users ?? []).map((u) => (
-              editing === u.userId ? (
-                <EditUserRow key={u.userId} user={u} onDone={() => setEditing(null)} />
-              ) : (
               <tr
                 key={u.userId}
                 onClick={() => setSelectedId(u.userId)}
@@ -211,14 +206,13 @@ export function UsersTab() {
                 <td className="px-4 py-3 text-right">
                   <button
                     type="button"
-                    onClick={() => setEditing(u.userId)}
+                    onClick={() => setSelectedId(u.userId)}
                     className="text-xs font-semibold text-brand hover:underline"
                   >
-                    {t('admin.edit')}
+                    {t('admin.view')}
                   </button>
                 </td>
               </tr>
-              )
             ))}
           </tbody>
         </table>
@@ -226,11 +220,7 @@ export function UsersTab() {
 
       {selected && (
         <div className="gov-card min-w-0 flex-1 p-5">
-          <UserDetailPane
-            user={selected}
-            onEdit={() => setEditing(selected.userId)}
-            onClose={() => setSelectedId(null)}
-          />
+          <UserDetailPane user={selected} onClose={() => setSelectedId(null)} />
         </div>
       )}
       </div>

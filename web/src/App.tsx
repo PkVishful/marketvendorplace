@@ -28,6 +28,8 @@ import { ProjectChecklistPage } from '@/features/gov/ProjectChecklistPage';
 import { AreaPage } from '@/features/gov/area/AreaPage';
 import { SettingsShell } from '@/features/admin/SettingsShell';
 import { OrgProfilePage } from '@/features/admin/OrgProfilePage';
+import { HierarchyLevelsTab } from '@/features/admin/HierarchyLevelsTab';
+import { OrgUnitsTab } from '@/features/admin/OrgUnitsTab';
 import { RoleDetailPage } from '@/features/admin/RoleDetailPage';
 import { UsersTab } from '@/features/admin/UsersTab';
 import { RolesTab } from '@/features/admin/RolesTab';
@@ -94,6 +96,8 @@ export function App() {
             <Route path="settings" element={<SettingsShell />}>
               <Route index element={<Navigate to="organization/profile" replace />} />
               <Route path="organization/profile" element={<OrgProfilePage />} />
+              <Route path="organization/hierarchy" element={<HierarchyLevelsTab />} />
+              <Route path="organization/units" element={<OrgUnitsTab />} />
               <Route path="users" element={<UsersTab />} />
               <Route path="roles" element={<RolesTab />} />
               <Route path="roles/:code" element={<RoleDetailPage />} />

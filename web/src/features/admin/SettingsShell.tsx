@@ -23,6 +23,8 @@ const ORGANIZATION_GROUPS: SettingsGroup[] = [
     labelKey: 'settingsShell.groupOrganization',
     links: [
       { to: 'organization/profile', labelKey: 'settingsShell.profile', requiresPermission: 'catalog.manage' },
+      { to: 'organization/hierarchy', labelKey: 'settingsShell.hierarchy', requiresPermission: 'user.manage' },
+      { to: 'organization/units', labelKey: 'settingsShell.orgUnits', requiresPermission: 'user.manage' },
     ],
   },
   {
