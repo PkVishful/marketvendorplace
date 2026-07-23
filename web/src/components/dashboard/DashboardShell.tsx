@@ -176,17 +176,10 @@ export function DashboardShell({
         }`}
       >
         <div className="gov-stripe shrink-0" aria-hidden />
-        <div className="flex shrink-0 flex-col items-center gap-2 border-b border-white/10 px-2 py-3">
-          <Link
-            to={homePath}
-            className="grid place-items-center rounded-lg focus-visible:ring-2 focus-visible:ring-accent"
-            title={t('app.brand')}
-          >
-            <TnEmblem tone="onDark" className="h-16" />
-          </Link>
+        <div className="flex shrink-0 items-center justify-center px-2 py-2 lg:hidden">
           <button
             type="button"
-            className="grid min-h-[36px] min-w-[36px] place-items-center rounded-lg text-white/80 hover:bg-white/10 lg:hidden"
+            className="grid min-h-[36px] min-w-[36px] place-items-center rounded-lg text-white/80 hover:bg-white/10"
             aria-label={t('dashboard.closeMenu')}
             onClick={() => setSidebarOpen(false)}
           >
@@ -292,10 +285,13 @@ export function DashboardShell({
 
             <Link
               to={homePath}
-              className="hidden shrink-0 items-center gap-2 rounded-lg text-white sm:flex"
+              className="flex shrink-0 items-center gap-2.5 rounded-lg text-white"
             >
-              <span className="font-display text-base font-bold leading-none">{t('app.brand')}</span>
-              <span className="text-xs text-white/60">/ {pageLabel}</span>
+              <TnEmblem tone="onDark" className="h-9" />
+              <span className="hidden font-display text-base font-bold leading-none sm:block">
+                {t('app.brand')}
+              </span>
+              <span className="hidden text-xs text-white/60 sm:block">/ {pageLabel}</span>
             </Link>
 
             <div className="order-last w-full min-w-0 flex-1 sm:order-none sm:mx-4 sm:max-w-xl lg:mx-8">
