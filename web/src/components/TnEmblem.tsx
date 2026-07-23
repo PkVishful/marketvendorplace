@@ -7,16 +7,13 @@ export function TnEmblem({
   tone?: 'onDark' | 'onLight';
 }) {
   return (
-    // Source artwork is 1280x854 with the round emblem centred on white; its
-    // ink occupies a 669x736 box, i.e. 86% of the frame height. object-cover
-    // crops to the middle 854x854 and the scale below takes out the remaining
-    // dead margin, so nearly every rendered pixel is emblem.
+    // Vector source, so the seal stays crisp at every size it is used at.
+    // The raster it replaced was measured getting ~36 device pixels in the top
+    // bar, which is far too few for a ring of Tamil lettering, a gopuram and
+    // the Ashoka lions — that shortfall, not any filter, was the "blur".
     //
-    // That margin matters more than it looks: this seal carries a ring of Tamil
-    // lettering, a gopuram and the Ashoka lions, and it is the *pixel count*
-    // that decides whether any of it resolves. Below roughly 48px the ring text
-    // degrades into a grey band — render it small and it will look blurred no
-    // matter how clean the source is.
+    // object-contain rather than cover: the SVG is the emblem alone on
+    // transparency, so it needs fitting inside the white badge, not cropping.
     <span
       className={`inline-grid aspect-square shrink-0 place-items-center overflow-hidden rounded-full bg-white ${
         tone === 'onDark'
@@ -25,9 +22,9 @@ export function TnEmblem({
       } ${className}`}
     >
       <img
-        src="/tn-emblem.webp"
+        src="/tn-emblem.svg"
         alt="Government of Tamil Nadu emblem"
-        className="h-full w-full scale-[1.14] object-cover"
+        className="h-[92%] w-[92%] object-contain"
         decoding="async"
       />
     </span>
