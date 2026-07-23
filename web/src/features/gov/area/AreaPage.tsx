@@ -87,6 +87,10 @@ export function AreaPage() {
 
   const { node, breadcrumbs, summary, projects } = data;
   const isProject = node.level === 'PROJECT';
+  // At state level the map section already lists every district, with its own
+  // search and paging — repeating them as cards underneath was the same data
+  // twice on one screen.
+  const showDistrictMap = node.level === 'STATE' && allChildren.length > 0;
 
   return (
     <div>
@@ -102,10 +106,8 @@ export function AreaPage() {
       <SummaryStrip summary={summary} />
 
       {/* The vector map only carries district shapes, so it is shown where the
-          children *are* districts. Deeper levels get the card grid alone. */}
-      {node.level === 'STATE' && allChildren.length > 0 && (
-        <DistrictMapSection districts={allChildren} />
-      )}
+          children *are* districts. Deeper levels get the card grid instead. */}
+      {showDistrictMap && <DistrictMapSection districts={allChildren} />}
 
       {isProject && (
         <Link to={`/gov/projects/${node.id}/checklist`} className="gov-btn-primary text-sm">
@@ -122,7 +124,7 @@ export function AreaPage() {
         </section>
       )}
 
-      {allChildren.length > 0 && (
+      {allChildren.length > 0 && !showDistrictMap && (
         <section>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-ink-3">

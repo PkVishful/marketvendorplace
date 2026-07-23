@@ -1428,6 +1428,7 @@
     "colOpen": "Open",
     "colActive": "Active",
     "colCerts": "Certificates",
-    "colScore": "Score"
+    "colScore": "Score",
+    "showingCount": "Showing {{shown}} of {{total}} districts"
   }
 }

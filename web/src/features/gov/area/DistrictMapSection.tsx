@@ -1,6 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Search } from 'lucide-react';
+import { Pagination } from '@/components/Pagination';
+import { pageWindow } from '@/lib/pagination';
+import { filterChildren } from './filterChildren';
 import { TnDistrictMap, type MapRegion } from '@/components/dashboard/districtMaps/TnDistrictMap';
 import { PERFORMANCE_COLORS, performanceFromScore } from '@/components/dashboard/districtMaps/types';
 import type { AreaChild } from './api';
@@ -22,6 +26,15 @@ function scoreStyle(score: number | null) {
 export function DistrictMapSection({ districts }: { districts: AreaChild[] }) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+
+  const PAGE_SIZE = 8;
+  // This table is now the only full district list on the page, so it carries
+  // the search and paging the card grid used to.
+  const filtered = useMemo(() => filterChildren(districts, query), [districts, query]);
+  const win = pageWindow({ total: filtered.length, page, pageSize: PAGE_SIZE });
+  const visible = filtered.slice((win.page - 1) * PAGE_SIZE, win.page * PAGE_SIZE);
 
   const regions: MapRegion[] = districts.map((d) => ({ id: d.id, name: d.name, score: d.score }));
   const selected = districts.find((d) => d.id === selectedId) ?? null;
@@ -81,7 +94,27 @@ export function DistrictMapSection({ districts }: { districts: AreaChild[] }) {
             <p className="text-sm text-slate">{t('districtMap.pickPrompt')}</p>
           )}
 
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <p className="text-[11px] text-ink-3" aria-live="polite">
+              {t('districtMap.showingCount', { shown: filtered.length, total: districts.length })}
+            </p>
+            <div className="relative w-56">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-3"
+                aria-hidden
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+                placeholder={t('area.searchPlaceholder')}
+                aria-label={t('area.searchLabel')}
+                className="w-full rounded-lg border border-line bg-surface py-1.5 pl-8 pr-3 text-sm text-ink placeholder:text-ink-3 focus:border-brand focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="mt-2 overflow-x-auto">
             <table className="w-full min-w-[420px] text-left text-sm">
               <thead className="border-b border-line text-[10px] uppercase tracking-wider text-ink-3">
                 <tr>
@@ -93,13 +126,23 @@ export function DistrictMapSection({ districts }: { districts: AreaChild[] }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {(selected ? [selected] : districts).map((d) => (
+                {visible.map((d) => (
                   <tr
                     key={d.id}
                     onClick={() => setSelectedId(d.id)}
                     className={`cursor-pointer ${d.id === selectedId ? 'bg-brand-tint/40' : 'hover:bg-surface-2'}`}
                   >
-                    <td className="py-2 pr-3 font-medium text-ink">{d.name}</td>
+                    <td className="py-2 pr-3 font-medium">
+                      {/* Row selects for the detail pane; the name drills in.
+                          Two distinct intents, so two distinct targets. */}
+                      <Link
+                        to={`/gov/area/${d.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-brand hover:underline"
+                      >
+                        {d.name}
+                      </Link>
+                    </td>
                     <td className="py-2 pr-3 text-right tabular-nums">{d.kpis.openOrders}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{d.kpis.activeJobs}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{d.kpis.certificates30d}</td>
@@ -115,6 +158,15 @@ export function DistrictMapSection({ districts }: { districts: AreaChild[] }) {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="mt-3">
+            <Pagination
+              total={filtered.length}
+              page={win.page}
+              pageSize={PAGE_SIZE}
+              onPage={setPage}
+            />
           </div>
         </div>
       </div>

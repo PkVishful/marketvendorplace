@@ -1428,6 +1428,7 @@
     "colOpen": "திறந்த",
     "colActive": "செயலில்",
     "colCerts": "சான்றிதழ்கள்",
-    "colScore": "மதிப்பெண்"
+    "colScore": "மதிப்பெண்",
+    "showingCount": "{{total}} இல் {{shown}} மாவட்டங்கள்"
   }
 }
