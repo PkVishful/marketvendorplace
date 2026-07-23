@@ -139,11 +139,22 @@ export async function lookupProfile(userId) {
         ? 'gov'
         : 'unknown';
 
+  let navVisibility = null;
+  try {
+    const nvQ = await pool.query(
+      `select value from eworks.settings where key = 'nav_visibility'`,
+    );
+    navVisibility = nvQ.rows[0]?.value ?? null;
+  } catch (err) {
+    if (err?.code !== '42P01') throw err;
+  }
+
   return {
     ...profile,
     roles,
     permissions,
     portal,
+    navVisibility,
     vendorId: vendors[0]?.id ?? null,
     vendorName: vendors[0]?.legalName ?? null,
     vendorStatus: vendors[0]?.vendorStatus ?? null,

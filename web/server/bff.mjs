@@ -18,7 +18,10 @@ import { saveCheckinPhoto, readCheckinPhoto, sniffImageType } from './checkin-ph
 import { saveCertificate, readCertificate } from './certificate-file.mjs';
 import { loadConfig } from './env.mjs';
 import { computeMilestoneHealth } from './region-health.mjs';
-import { loadChildRegions } from './area-queries.mjs';
+import {
+  loadChildRegions, loadCollapseChain, loadAncestors, loadProjects, loadSubtreeSummary,
+} from './area-queries.mjs';
+import { pickEffectiveNode, buildBreadcrumbs } from './area.mjs';
 import { selectProvider } from './otp/provider.mjs';
 import { shapeChecklist, deriveReqStatus } from './catalog.mjs';
 import {
@@ -1740,6 +1743,62 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
         for (const m of milestones) counts[m.health] += 1;
         return { counts, milestones };
       });
+      res.json(payload);
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
+  // Area drill-down. One handler for every level of the org tree: the level of
+  // the node it lands on is what the client switches its layout on.
+  app.get(['/api/gov/area', '/api/gov/area/:orgUnitId'], async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const payload = await withUserSession(userId, async (client) => {
+        // Anchor = caller's most senior gov org unit. Same rule as the map
+        // endpoint, and it is also the floor for breadcrumb drill-up.
+        const anchorQ = await client.query(
+          `select ou.id, ou.name, ou.path::text as path, ou.level,
+                  eworks.org_level_ordinal(ou.level) as ord
+             from eworks.user_roles ur
+             join eworks.org_units ou on ou.id = ur.org_unit_id
+            where ur.user_id = eworks.current_user_id()
+              and ur.role_code in ('SITE_ENGINEER','EXECUTIVE_ENGINEER','DISTRICT_OFFICER',
+                                   'SUPERINTENDING_ENGINEER','AUDITOR','HEAD_ADMIN')
+            order by ord asc limit 1`);
+        const anchor = anchorQ.rows[0];
+        if (!anchor) return { outside: true };
+
+        const requestedId = req.params.orgUnitId || anchor.id;
+        const chain = await loadCollapseChain(client, requestedId);
+        const { node, skipped } = pickEffectiveNode(chain);
+        // Missing and out-of-scope are the same answer on purpose.
+        if (!node) return { outside: true };
+
+        const ancestors = await loadAncestors(client, node.path);
+        const breadcrumbs = buildBreadcrumbs(ancestors, anchor.path);
+        const summary = await loadSubtreeSummary(client, node.path);
+
+        // A node whose children are projects reports them as `projects`; every
+        // other level reports scored `children` (spec §4).
+        const projects = await loadProjects(client, node.path);
+        const children = projects.length > 0 ? [] : await loadChildRegions(client, node.path);
+
+        return {
+          node: { id: node.id, name: node.name, level: node.level, path: node.path },
+          requestedId,
+          skipped: skipped.map((s) => ({ id: s.id, name: s.name, level: s.level })),
+          breadcrumbs,
+          summary,
+          children,
+          projects,
+        };
+      });
+
+      if (payload.outside) {
+        return res.status(403).json({ error: 'outside_your_area' });
+      }
       res.json(payload);
     } catch (err) {
       res.status(500).json({ error: 'query_failed', detail: err.message });

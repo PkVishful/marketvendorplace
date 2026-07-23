@@ -35,11 +35,13 @@ import { pool } from './db.mjs';
 export function assertLocalDb() {
   const remoteUrl = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
   const useLocal = process.env.EWORKS_USE_LOCAL_PG === '1';
-  if (remoteUrl && !useLocal) {
+  const remoteOk = process.env.EWORKS_SEED_REMOTE_OK === '1';
+  if (remoteUrl && !useLocal && !remoteOk) {
     throw new Error(
       'seed-districts: refusing to run against a remote database. The remote ' +
       'Supabase is shared with another app. Set EWORKS_USE_LOCAL_PG=1 (and a ' +
-      'local PGHOST/PGPORT) to seed the local eworks database instead.',
+      'local PGHOST/PGPORT) to seed the local eworks database instead, or ' +
+      'EWORKS_SEED_REMOTE_OK=1 to deliberately seed the remote eworks schema.',
     );
   }
 }
