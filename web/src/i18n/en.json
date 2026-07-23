@@ -1,10 +1,10 @@
 {
   "app": {
-    "brand": "E-Works",
-    "subtitle": "Testing Marketplace · Govt. of Tamil Nadu"
+    "brand": "Marketplace",
+    "subtitle": "Govt. of Tamil Nadu"
   },
   "shell": {
-    "deptName": "Public Works Department · Testing Marketplace",
+    "deptName": "Public Works Department · Marketplace",
     "deptNameTa": "பொதுப்பணித்துறை · சோதனை சந்தை",
     "state": "Tamil Nadu",
     "orgScope": "Organisation scope",
@@ -102,7 +102,7 @@
       "portal": "Portal",
       "build": "Build",
       "support": "Support",
-      "testingMarketplace": "Testing Marketplace",
+      "testingMarketplace": "Marketplace",
       "version": "Version 1.0.0"
     },
     "actions": {
@@ -570,18 +570,18 @@
     "languageTitle": "Language",
     "languageDesc": "Interface language for menus and labels.",
     "sessionTitle": "Session",
-    "sessionDesc": "Sign out of E-Works on this device."
+    "sessionDesc": "Sign out of Marketplace on this device."
   },
   "help": {
     "title": "Help & Support",
-    "subtitle": "Contact the E-Works team, browse FAQs, and find quick links.",
+    "subtitle": "Contact the Marketplace team, browse FAQs, and find quick links.",
     "emailTitle": "Email support",
     "emailDesc": "We typically respond within one working day.",
     "phoneTitle": "Helpline",
     "phoneDesc": "Mon–Sat, 9 AM – 6 PM IST.",
     "quickLinksTitle": "Quick links",
     "faqTitle": "Frequently asked questions",
-    "faqSubtitle": "Common questions about using the E-Works portal.",
+    "faqSubtitle": "Common questions about using the Marketplace portal.",
     "faq": {
       "signIn": {
         "q": "How do I sign in?",
@@ -607,7 +607,7 @@
   },
   "signIn": {
     "heroTitle": "Construction testing, made transparent",
-    "heroDesc": "E-Works connects accredited testing labs with government projects across Tamil Nadu — from tender to field sample to certificate.",
+    "heroDesc": "Marketplace connects accredited testing labs with government projects across Tamil Nadu — from tender to field sample to certificate.",
     "forLabsTitle": "For testing labs",
     "forLabsDesc": "Register your lab, bid on district tenders, run field jobs, and track payments.",
     "forOfficersTitle": "For engineers & officers",
@@ -656,7 +656,7 @@
   "verify": {
     "eyebrow": "Public verification",
     "title": "Certificate authenticity",
-    "subtitle": "Verify a tamper-evident test certificate issued through E-Works.",
+    "subtitle": "Verify a tamper-evident test certificate issued through Marketplace.",
     "certIdLabel": "Certificate ID",
     "certIdPlaceholder": "UUID from QR code on certificate",
     "lookup": "Verify certificate",
@@ -1326,7 +1326,7 @@
   },
   "signInEmail": {
     "title": "Sign in",
-    "subtitle": "to access TN eWorks",
+    "subtitle": "to access Marketplace",
     "emailLabel": "Email",
     "emailPlaceholder": "Email address",
     "passwordLabel": "Password",

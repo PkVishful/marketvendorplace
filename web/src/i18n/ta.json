@@ -1,6 +1,6 @@
 {
   "app": {
-    "brand": "E-Works",
+    "brand": "Marketplace",
     "subtitle": "சோதனை சந்தை · தமிழ்நாடு அரசு"
   },
   "shell": {
@@ -102,7 +102,7 @@
       "portal": "போர்டல்",
       "build": "Build",
       "support": "ஆதரவு",
-      "testingMarketplace": "Testing Marketplace",
+      "testingMarketplace": "Marketplace",
       "version": "Version 1.0.0"
     },
     "actions": {
@@ -570,18 +570,18 @@
     "languageTitle": "மொழி",
     "languageDesc": "மெனு மற்றும் label-களுக்கான interface மொழி.",
     "sessionTitle": "Session",
-    "sessionDesc": "இந்த device-ல் E-Works-ல் இருந்து sign out செய்யுங்கள்."
+    "sessionDesc": "இந்த device-ல் Marketplace-ல் இருந்து sign out செய்யுங்கள்."
   },
   "help": {
     "title": "உதவி & ஆதரவு",
-    "subtitle": "E-Works குழுவை தொடர்பு கொள்ளுங்கள், FAQ பாருங்கள், quick links கண்டறியுங்கள்.",
+    "subtitle": "Marketplace குழுவை தொடர்பு கொள்ளுங்கள், FAQ பாருங்கள், quick links கண்டறியுங்கள்.",
     "emailTitle": "Email support",
     "emailDesc": "வழக்கமாக ஒரு working day-ல் பதில்.",
     "phoneTitle": "Helpline",
     "phoneDesc": "திங்கள்–சனி, 9 AM – 6 PM IST.",
     "quickLinksTitle": "Quick links",
     "faqTitle": "அடிக்கடி கேட்கப்படும் கேள்விகள்",
-    "faqSubtitle": "E-Works portal பயன்பாட்டில் பொதுவான கேள்விகள்.",
+    "faqSubtitle": "Marketplace portal பயன்பாட்டில் பொதுவான கேள்விகள்.",
     "faq": {
       "signIn": {
         "q": "எப்படி sign in செய்வது?",
@@ -607,7 +607,7 @@
   },
   "signIn": {
     "heroTitle": "கட்டுமான சோதனை — வெளிப்படையாக",
-    "heroDesc": "E-Works அங்கீகரிக்கப்பட்ட ஆய்வகங்களை தமிழ்நாடு அரசுத் திட்டங்களுடன் இணைக்கிறது — டெண்டர் முதல் சான்றிதழ் வரை.",
+    "heroDesc": "Marketplace அங்கீகரிக்கப்பட்ட ஆய்வகங்களை தமிழ்நாடு அரசுத் திட்டங்களுடன் இணைக்கிறது — டெண்டர் முதல் சான்றிதழ் வரை.",
     "forLabsTitle": "சோதனை ஆய்வகங்களுக்கு",
     "forLabsDesc": "ஆய்வகம் பதிவு, மாவட்ட டெண்டர்களில் ஏலம், field jobs மற்றும் கட்டணம்.",
     "forOfficersTitle": "பொறியாளர்கள் & அதிகாரிகளுக்கு",
@@ -656,7 +656,7 @@
   "verify": {
     "eyebrow": "Public verification",
     "title": "Certificate check",
-    "subtitle": "Verify E-Works test certificate.",
+    "subtitle": "Marketplace test certificate ஐ சரிபார்க்கவும்.",
     "certIdLabel": "Certificate ID",
     "certIdPlaceholder": "UUID from QR",
     "lookup": "Verify",
@@ -1326,7 +1326,7 @@
   },
   "signInEmail": {
     "title": "உள்நுழைக",
-    "subtitle": "TN eWorks ஐ அணுக",
+    "subtitle": "Marketplace ஐ அணுக",
     "emailLabel": "மின்னஞ்சல்",
     "emailPlaceholder": "மின்னஞ்சல் முகவரி",
     "passwordLabel": "கடவுச்சொல்",

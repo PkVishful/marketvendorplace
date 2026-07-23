@@ -177,7 +177,7 @@ export function RfqDetailView({
   return (
     <section className="rfq-detail space-y-6">
       <nav className="rfq-breadcrumb" aria-label="Breadcrumb">
-        <Link to="/gov">E-Works</Link>
+        <Link to="/gov">{t('app.brand')}</Link>
         <ChevronRight className="h-3.5 w-3.5" aria-hidden />
         <Link to="/gov">{t('gov.navHome')}</Link>
         <ChevronRight className="h-3.5 w-3.5" aria-hidden />
