@@ -182,7 +182,7 @@ export function DashboardShell({
             className="grid place-items-center rounded-lg focus-visible:ring-2 focus-visible:ring-accent"
             title={t('app.brand')}
           >
-            <TnEmblem tone="onDark" className="h-10" />
+            <TnEmblem tone="onDark" className="h-16" />
           </Link>
           <button
             type="button"
