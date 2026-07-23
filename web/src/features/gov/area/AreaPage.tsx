@@ -1,6 +1,7 @@
+import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ShieldAlert } from 'lucide-react';
+import { Search, ShieldAlert } from 'lucide-react';
 import { ApiError } from '@/lib/apiClient';
 import { useSession } from '@/auth/useSession';
 import { DistrictPerformanceMap } from '@/components/dashboard/DistrictMap';
@@ -8,6 +9,7 @@ import { useArea } from './useArea';
 import { AreaBreadcrumbs } from './AreaBreadcrumbs';
 import { AreaChildCard } from './AreaChildCard';
 import { AreaProjectList } from './AreaProjectList';
+import { filterChildren } from './filterChildren';
 import type { AreaSummary } from './api';
 
 function OutsideAreaScreen() {
@@ -59,6 +61,15 @@ export function AreaPage() {
   const { t } = useTranslation();
   const { data: session } = useSession();
   const { data, isPending, isError, error } = useArea(orgUnitId);
+  const [query, setQuery] = useState('');
+
+  // Memoised off `data` rather than rebuilt inline: a fresh [] each render would
+  // make the filter memo below recompute on every keystroke for nothing.
+  const allChildren = useMemo(() => data?.children ?? [], [data]);
+  const visibleChildren = useMemo(
+    () => filterChildren(allChildren, query),
+    [allChildren, query],
+  );
 
   if (isError && error instanceof ApiError && error.status === 403) {
     return <OutsideAreaScreen />;
@@ -76,7 +87,7 @@ export function AreaPage() {
     return <p className="text-sm text-danger">{t('area.loadFailed')}</p>;
   }
 
-  const { node, breadcrumbs, summary, children, projects } = data;
+  const { node, breadcrumbs, summary, projects } = data;
   const showMap = node.level === 'STATE' || node.level === 'DISTRICT';
   const isProject = node.level === 'PROJECT';
 
@@ -98,6 +109,7 @@ export function AreaPage() {
           <DistrictPerformanceMap
             districtName={session?.roles?.[0]?.orgName}
             orgPath={session?.roles?.[0]?.orgPath}
+            hideRegionList
           />
         </div>
       )}
@@ -117,20 +129,52 @@ export function AreaPage() {
         </section>
       )}
 
-      {children.length > 0 && (
+      {allChildren.length > 0 && (
         <section>
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-ink-3">
-            {t('area.childrenHeading')}
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {children.map((child) => (
-              <AreaChildCard key={child.id} child={child} />
-            ))}
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-ink-3">
+              {t('area.childrenHeading')}
+            </h2>
+            {/* Every sub-area is listed; search narrows rather than paginates,
+                so a district is never merely unreachable. */}
+            <div className="relative w-full sm:w-72">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3"
+                aria-hidden
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('area.searchPlaceholder')}
+                aria-label={t('area.searchLabel')}
+                className="w-full rounded-lg border border-line bg-surface py-2 pl-9 pr-3 text-sm text-ink placeholder:text-ink-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/30"
+              />
+            </div>
           </div>
+
+          <p className="mb-3 text-[11px] text-ink-3" aria-live="polite">
+            {t('area.showingCount', {
+              shown: visibleChildren.length,
+              total: allChildren.length,
+            })}
+          </p>
+
+          {visibleChildren.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleChildren.map((child) => (
+                <AreaChildCard key={child.id} child={child} />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-xl border border-line bg-surface p-6 text-center text-sm text-slate">
+              {t('area.noSearchMatch', { query })}
+            </p>
+          )}
         </section>
       )}
 
-      {!isProject && children.length === 0 && projects.length === 0 && (
+      {!isProject && allChildren.length === 0 && projects.length === 0 && (
         <p className="rounded-xl border border-line bg-surface p-6 text-center text-sm text-slate">
           {t('area.emptyNode')}
         </p>

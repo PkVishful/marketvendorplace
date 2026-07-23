@@ -1301,6 +1301,10 @@
       "SECTION": "Section",
       "FIELD_UNIT": "Field unit",
       "PROJECT": "Site"
-    }
+    },
+    "searchPlaceholder": "Search districts…",
+    "searchLabel": "Search sub-areas by name",
+    "showingCount": "Showing {{shown}} of {{total}}",
+    "noSearchMatch": "No sub-area matches “{{query}}”."
   }
 }

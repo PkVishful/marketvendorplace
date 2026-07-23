@@ -16,6 +16,12 @@ import { defaultTalukaDetails } from './districtMaps/talukaDetails';
 interface DistrictPerformanceMapProps {
   districtName?: string;
   orgPath?: string;
+  /**
+   * Render the map artwork without its own region list. The Area page shows a
+   * complete, searchable list of the same regions directly beneath, and two
+   * lists of the same thing — one of them truncated to 12 — reads as a bug.
+   */
+  hideRegionList?: boolean;
 }
 
 /** Regions the endpoint reported no score for. Deliberately outside the
@@ -170,7 +176,11 @@ function TalukaDetailPanel({
   );
 }
 
-export function DistrictPerformanceMap({ districtName, orgPath }: DistrictPerformanceMapProps) {
+export function DistrictPerformanceMap({
+  districtName,
+  orgPath,
+  hideRegionList = false,
+}: DistrictPerformanceMapProps) {
   const { t } = useTranslation();
   const { data, isPending, isError, refetch } = useGovDashboardMap();
   const baseMap = useMemo(() => getDistrictMap(districtName, orgPath), [districtName, orgPath]);
@@ -324,6 +334,7 @@ export function DistrictPerformanceMap({ districtName, orgPath }: DistrictPerfor
         </svg>
       )}
 
+      {!hideRegionList && (
       <ul
         className={`mt-4 grid gap-2 sm:grid-cols-2 ${
           isStateMap ? 'max-h-48 overflow-y-auto pr-1' : ''
@@ -362,8 +373,9 @@ export function DistrictPerformanceMap({ districtName, orgPath }: DistrictPerfor
           );
         })}
       </ul>
+      )}
 
-      {isStateMap && mapDef.talukas.length > kpiRows.length && (
+      {!hideRegionList && isStateMap && mapDef.talukas.length > kpiRows.length && (
         <p className="mt-2 text-center text-[11px] text-ink-3">
           {t('dashboard.districtMap.showingDistricts', {
             shown: kpiRows.length,

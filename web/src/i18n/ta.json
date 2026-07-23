@@ -1301,6 +1301,10 @@
       "SECTION": "பிரிவு",
       "FIELD_UNIT": "கள அலகு",
       "PROJECT": "தளம்"
-    }
+    },
+    "searchPlaceholder": "மாவட்டங்களைத் தேடு…",
+    "searchLabel": "பெயரால் உட்பகுதிகளைத் தேடு",
+    "showingCount": "{{total}} இல் {{shown}} காட்டப்படுகிறது",
+    "noSearchMatch": "“{{query}}” உடன் பொருந்தும் உட்பகுதி இல்லை."
   }
 }
