@@ -1410,5 +1410,24 @@
     "showing": "Showing {{from}}–{{to}} of {{total}}",
     "previous": "Previous page",
     "next": "Next page"
+  },
+  "districtMap": {
+    "title": "District Map (Tamil Nadu)",
+    "viewAll": "View all",
+    "ariaLabel": "Tamil Nadu district map",
+    "detailTitle": "{{district}} — district details",
+    "noOrdersYet": "No open orders in this district yet.",
+    "ordersSummary": "{{count}} open orders in this district.",
+    "pickPrompt": "Select a district on the map to see its details.",
+    "openOrders": "Open orders",
+    "activeJobs": "Active jobs",
+    "labsEngaged": "Labs engaged",
+    "quality": "Quality",
+    "noData": "No data",
+    "colDistrict": "District",
+    "colOpen": "Open",
+    "colActive": "Active",
+    "colCerts": "Certificates",
+    "colScore": "Score"
   }
 }

@@ -51,6 +51,12 @@ const REGION_NAME_ALIASES: Record<string, string> = {
   trichy: 'tiruchirappalli',
   tiruchirapalli: 'tiruchirappalli',
   kanniyakumari: 'kanyakumari',
+  // The district-shape dataset prefers the aspirated "Th-" spellings; org_units
+  // uses "T-". Without these three the shapes match no region and render grey,
+  // which looks exactly like a district with no data.
+  kancheepuram: 'kanchipuram',
+  thiruvallur: 'tiruvallur',
+  thiruvarur: 'tiruvarur',
 };
 
 export function normalizeRegionName(name: string): string {

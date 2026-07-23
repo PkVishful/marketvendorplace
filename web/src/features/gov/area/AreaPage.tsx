@@ -3,8 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Search, ShieldAlert } from 'lucide-react';
 import { ApiError } from '@/lib/apiClient';
-import { useSession } from '@/auth/useSession';
-import { DistrictPerformanceMap } from '@/components/dashboard/DistrictMap';
+import { DistrictMapSection } from './DistrictMapSection';
 import { useArea } from './useArea';
 import { AreaBreadcrumbs } from './AreaBreadcrumbs';
 import { AreaChildCard } from './AreaChildCard';
@@ -59,7 +58,6 @@ function SummaryStrip({ summary }: { summary: AreaSummary }) {
 export function AreaPage() {
   const { orgUnitId } = useParams<{ orgUnitId?: string }>();
   const { t } = useTranslation();
-  const { data: session } = useSession();
   const { data, isPending, isError, error } = useArea(orgUnitId);
   const [query, setQuery] = useState('');
 
@@ -88,7 +86,6 @@ export function AreaPage() {
   }
 
   const { node, breadcrumbs, summary, projects } = data;
-  const showMap = node.level === 'STATE' || node.level === 'DISTRICT';
   const isProject = node.level === 'PROJECT';
 
   return (
@@ -104,14 +101,10 @@ export function AreaPage() {
 
       <SummaryStrip summary={summary} />
 
-      {showMap && (
-        <div className="mb-5 rounded-xl border border-line bg-surface p-4">
-          <DistrictPerformanceMap
-            districtName={session?.roles?.[0]?.orgName}
-            orgPath={session?.roles?.[0]?.orgPath}
-            hideRegionList
-          />
-        </div>
+      {/* The vector map only carries district shapes, so it is shown where the
+          children *are* districts. Deeper levels get the card grid alone. */}
+      {node.level === 'STATE' && allChildren.length > 0 && (
+        <DistrictMapSection districts={allChildren} />
       )}
 
       {isProject && (
