@@ -67,7 +67,17 @@
       "recentProjects": "சமீப திட்டங்கள்",
       "viewTalukRfqs": "RFQ pipeline பார்",
       "viewTalukQuality": "Quality dashboard",
-      "clearSelection": "தேர்வை நீக்கு"
+      "clearSelection": "தேர்வை நீக்கு",
+      "loading": "நேரடி செயல்திறன் ஏற்றப்படுகிறது…",
+      "loadFailed": "நேரடி செயல்திறன் தரவு கிடைக்கவில்லை",
+      "retry": "மீண்டும் முயற்சி",
+      "noData": "தரவு இல்லை",
+      "noDataLegend": "தரவு இல்லை",
+      "openOrders": "திறந்த ஆர்டர்கள்",
+      "activeJobs": "செயலில் உள்ள பணிகள்",
+      "failedTests30d": "தோல்வி tests (30 நாள்)",
+      "certificates30d": "சான்றிதழ்கள் (30 நாள்)",
+      "vendorsActive": "ஈடுபட்ட labs"
     },
     "deptPerformance": "துறை செயல்திறன்",
     "budgetSummary": "பட்ஜெட் சுருக்கம்",
@@ -1256,5 +1266,41 @@
     "notApprovedTitle": "ஏலம் கோர உங்கள் பதிவை முடிக்கவும்",
     "notApprovedBody": "மாவட்ட அதிகாரியால் உங்கள் ஒப்பந்ததாரர் பதிவு அங்கீகரிக்கப்பட்டவுடன் திறந்த ஒப்பந்தங்கள் இங்கே தோன்றும்.",
     "goToRegistration": "பதிவுக்குச் செல்"
+  },
+  "area": {
+    "nav": "பகுதி",
+    "breadcrumbLabel": "பகுதி படிநிலை",
+    "crumbOutsideScope": "உங்கள் பகுதிக்கு வெளியே",
+    "loading": "பகுதி ஏற்றப்படுகிறது…",
+    "loadFailed": "இந்தப் பகுதியை ஏற்ற முடியவில்லை",
+    "noData": "தரவு இல்லை",
+    "childrenHeading": "உட்பகுதிகள்",
+    "projectsHeading": "தளங்கள் & திட்டங்கள்",
+    "emptyNode": "இந்தப் பகுதியில் இதுவரை பதிவு இல்லை.",
+    "openChecklist": "சோதனை சரிபார்ப்புப் பட்டியல்",
+    "outsideTitle": "உங்கள் பகுதிக்கு வெளியே",
+    "outsideBody": "இந்தப் பகுதி நீங்கள் நியமிக்கப்பட்ட அமைப்பு பிரிவில் இல்லை.",
+    "backToMyArea": "என் பகுதிக்குத் திரும்பு",
+    "testsCertified": "{{required}} இல் {{certified}} சோதனைகள் சான்றளிக்கப்பட்டன",
+    "openOrdersCount": "{{count}} திறந்த ஆர்டர்கள்",
+    "kpi": {
+      "openOrders": "திறந்த ஆர்டர்கள்",
+      "activeJobs": "செயலில் உள்ள பணிகள்",
+      "pendingApprovals": "நிலுவை ஒப்புதல்கள்",
+      "certificates30d": "சான்றிதழ்கள் (30 நாள்)",
+      "failedTests30d": "தோல்வி tests (30 நாள்)",
+      "vendorsActive": "ஈடுபட்ட labs",
+      "qualityScore": "தர மதிப்பெண்"
+    },
+    "level": {
+      "STATE": "மாநிலம்",
+      "DISTRICT": "மாவட்டம்",
+      "DIVISION": "கோட்டம்",
+      "CIRCLE": "வட்டம்",
+      "SUBDIVISION": "உட்கோட்டம்",
+      "SECTION": "பிரிவு",
+      "FIELD_UNIT": "கள அலகு",
+      "PROJECT": "தளம்"
+    }
   }
 }

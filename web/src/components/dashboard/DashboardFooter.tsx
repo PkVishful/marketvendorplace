@@ -7,7 +7,7 @@ export function DashboardFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="dash-footer mt-10 shrink-0 text-white">
+    <footer className="dash-footer shrink-0 text-white">
       <div className="gov-stripe" aria-hidden />
       <div className="px-6 py-8 sm:px-8 lg:px-10">
         <div className="grid gap-8 lg:grid-cols-[1.2fr_2fr_auto] lg:items-start">

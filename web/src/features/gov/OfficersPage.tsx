@@ -5,37 +5,24 @@ import { FeedSkeleton } from '@/components/Skeleton';
 import { formatDate } from '@/lib/time';
 import { useGovOfficers } from './useGov';
 
-const ROLE_FILTERS = [
-  'ALL',
-  'HEAD_ADMIN',
-  'DISTRICT_OFFICER',
-  'EXECUTIVE_ENGINEER',
-  'SITE_ENGINEER',
-  'AUDITOR',
-] as const;
-
 export function OfficersPage() {
   const { t } = useTranslation();
   const canRead = usePermission('user.read');
   const { data, isPending, isError, refetch } = useGovOfficers(canRead);
-  const [roleFilter, setRoleFilter] = useState<(typeof ROLE_FILTERS)[number]>('ALL');
   const [q, setQ] = useState('');
 
   const rows = useMemo(() => {
     const list = data ?? [];
     const needle = q.trim().toLowerCase();
-    return list.filter((r) => {
-      if (roleFilter !== 'ALL' && r.roleCode !== roleFilter) return false;
-      if (!needle) return true;
-      return (
+    if (!needle) return list;
+    return list.filter(
+      (r) =>
         r.fullName.toLowerCase().includes(needle) ||
         r.phone.includes(needle) ||
         r.orgName.toLowerCase().includes(needle) ||
-        r.orgPath.toLowerCase().includes(needle) ||
-        r.roleCode.toLowerCase().includes(needle)
-      );
-    });
-  }, [data, roleFilter, q]);
+        r.orgPath.toLowerCase().includes(needle),
+    );
+  }, [data, q]);
 
   if (!canRead) {
     return (
@@ -66,35 +53,17 @@ export function OfficersPage() {
         <p className="mt-1 text-sm text-slate">{t('officers.subtitle')}</p>
       </header>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <label className="sr-only" htmlFor="officer-search">
-          {t('officers.search')}
-        </label>
+      <label className="block max-w-md" htmlFor="officer-search">
+        <span className="sr-only">{t('officers.search')}</span>
         <input
           id="officer-search"
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t('officers.searchPlaceholder')}
-          className="gov-input max-w-md"
+          className="gov-input w-full"
         />
-        <div className="flex flex-wrap gap-2">
-          {ROLE_FILTERS.map((code) => (
-            <button
-              key={code}
-              type="button"
-              onClick={() => setRoleFilter(code)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                roleFilter === code
-                  ? 'bg-brand text-white'
-                  : 'border border-line bg-surface text-ink hover:bg-surface-2'
-              }`}
-            >
-              {code === 'ALL' ? t('officers.filterAll') : t(`officers.role.${code}`, { defaultValue: code.replace(/_/g, ' ') })}
-            </button>
-          ))}
-        </div>
-      </div>
+      </label>
 
       <p className="text-xs text-ink-3">
         {t('officers.count', { shown: rows.length, total: data?.length ?? 0 })}
@@ -113,7 +82,6 @@ export function OfficersPage() {
                 <tr>
                   <th className="px-4 py-3 font-semibold">{t('officers.colName')}</th>
                   <th className="px-4 py-3 font-semibold">{t('officers.colPhone')}</th>
-                  <th className="px-4 py-3 font-semibold">{t('officers.colRole')}</th>
                   <th className="px-4 py-3 font-semibold">{t('officers.colOrg')}</th>
                   <th className="px-4 py-3 font-semibold">{t('officers.colLevel')}</th>
                   <th className="px-4 py-3 font-semibold">{t('officers.colGranted')}</th>
@@ -127,11 +95,6 @@ export function OfficersPage() {
                       <p className="text-[11px] text-ink-3">{r.orgPath}</p>
                     </td>
                     <td className="px-4 py-3 tabular-nums text-ink">{r.phone}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-md bg-brand-tint px-2 py-0.5 text-[11px] font-bold text-brand">
-                        {r.roleName ?? r.roleCode.replace(/_/g, ' ')}
-                      </span>
-                    </td>
                     <td className="px-4 py-3 text-ink">{r.orgName}</td>
                     <td className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate">
                       {r.orgLevel}

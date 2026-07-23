@@ -14,6 +14,7 @@ export interface NavItem {
 /** Tab keys stored in eworks.settings.nav_visibility */
 export const GOV_NAV_TAB_KEYS = [
   { key: 'dashboard', labelKey: 'gov.navHome' },
+  { key: 'area', labelKey: 'area.nav' },
   { key: 'planner', labelKey: 'gov.planned.planner' },
   { key: 'checklist', labelKey: 'catalog.title' },
   { key: 'orders', labelKey: 'govOrders.nav' },
@@ -26,6 +27,10 @@ export const GOV_NAV_TAB_KEYS = [
 ] as const;
 
 const GOV_ALL: NavItem[] = [
+  // Area is everyone's drill-down home (spec §3), so it leads the strip for
+  // every role that can read orders at all. The classic dashboard stays behind
+  // it rather than being deleted — its panels are still the fastest read.
+  { to: '/gov/area', labelKey: 'area.nav', navKey: 'area', requiresPermission: 'order.read' },
   { to: '/gov', labelKey: 'gov.navHome', end: true, navKey: 'dashboard' },
   { to: '/gov/planner', labelKey: 'gov.planned.planner', navKey: 'planner', requiresPermission: ['order.float', 'order.read'] },
   { to: '/gov/checklist', labelKey: 'catalog.title', navKey: 'checklist', requiresPermission: 'order.read' },

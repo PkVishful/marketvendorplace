@@ -85,3 +85,19 @@ describe('vendor nav — Tests we do', () => {
     expect(vendorNavForSession(vendor(['LAB_VENDOR'])).map((n) => n.to)).toContain('/vendor/tests');
   });
 });
+
+describe('Area tab', () => {
+  it('is the first gov tab whenever the user can read orders', () => {
+    const t = tabs(gov(['order.read']));
+    expect(t[0]).toBe('/gov/area');
+  });
+
+  it('is hidden from a user with no order.read', () => {
+    expect(tabs(gov([]))).not.toContain('/gov/area');
+  });
+
+  it('survives alongside the tabs the role already had', () => {
+    const t = tabs(gov(['order.read', 'vendor.read', 'audit.read']));
+    expect(t).toEqual(expect.arrayContaining(['/gov/area', '/gov/orders', '/gov/ratings']));
+  });
+});

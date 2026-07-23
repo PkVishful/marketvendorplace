@@ -26,6 +26,7 @@ import { VendorDashboard } from '@/features/vendor/VendorDashboard';
 import { OnboardingWizard } from '@/features/kyc/OnboardingWizard';
 import { RatesPage } from '@/features/pricing/RatesPage';
 import { ProjectChecklistPage } from '@/features/gov/ProjectChecklistPage';
+import { AreaPage } from '@/features/gov/area/AreaPage';
 import { ChecklistScreen } from '@/features/catalog/ChecklistScreen';
 import { ContractorLayout } from '@/app/ContractorLayout';
 import { ContractsPage } from '@/features/contractor/ContractsPage';
@@ -72,6 +73,8 @@ export function App() {
         <Route element={<RequirePortal portal="gov" />}>
           <Route path="/gov" element={<GovLayout />}>
             <Route index element={<GovHomePage />} />
+            <Route path="area" element={<AreaPage />} />
+            <Route path="area/:orgUnitId" element={<AreaPage />} />
             <Route path="planner" element={<PlannerPage />} />
             <Route path="checklist" element={<ChecklistScreen variant="gov" />} />
             <Route path="projects/:projectId/checklist" element={<ProjectChecklistPage />} />

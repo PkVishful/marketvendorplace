@@ -1,75 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import { useDevLogin } from '@/auth/useSession';
 import { TnEmblem } from '@/components/TnEmblem';
 import { PhoneSignIn } from '@/features/auth/PhoneSignIn';
 import { LANGUAGES } from '@/i18n';
 import { Building2, Moon, ShieldCheck, Sun, TestTube2 } from '@/lib/navIcons';
-import { DEV_VENDOR_USERS, DEV_CONTRACTOR_USERS, devUserById, govUsersByOrgLevel } from './devUsers';
-import { portalHomePathForSession, resolvePortal } from '@/types/domain';
-
-function UserGroup({
-  title,
-  accent,
-  users,
-  onPick,
-  disabled,
-  showScope,
-}: {
-  title: string;
-  accent: 'vendor' | 'gov' | 'contractor';
-  users: typeof DEV_VENDOR_USERS;
-  onPick: (userId: string) => void;
-  disabled: boolean;
-  showScope?: boolean;
-}) {
-  const dot = accent === 'gov' ? 'bg-brand' : accent === 'contractor' ? 'bg-accent' : 'bg-success';
-
-  return (
-    <div className="overflow-hidden rounded-2xl border border-line/80 bg-surface-2/40">
-      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
-        <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />
-        <h2 className="text-sm font-bold text-ink">{title}</h2>
-      </div>
-      <div className="flex flex-col gap-2 p-3">
-        {users.map((v) => (
-          <button
-            key={v.userId}
-            type="button"
-            disabled={disabled}
-            onClick={() => onPick(v.userId)}
-            className="sign-in-persona group"
-          >
-            <span className="grid h-11 w-11 flex-none place-items-center rounded-xl bg-brand text-xs font-bold text-white transition-transform group-hover:scale-105">
-              {v.label.slice(0, 2).toUpperCase()}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold text-ink">{v.label}</span>
-                {showScope && v.scopeLabel && (
-                  <span className="rounded-md bg-brand-tint px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
-                    {v.scopeLabel}
-                  </span>
-                )}
-              </span>
-              <span className="mt-0.5 block text-xs text-slate">{v.sub}</span>
-            </span>
-            <span className="text-brand opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true">
-              →
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function orgLevelLabel(level: string, t: (k: string) => string): string {
-  const key = `signIn.orgLevel.${level.toLowerCase()}`;
-  const translated = t(key);
-  return translated !== key ? translated : level.replace(/_/g, ' ');
-}
 
 function InfoFeature({
   icon,
@@ -107,18 +41,6 @@ export function DevSignIn({
   onLangChange: (code: string) => void;
 }) {
   const { t } = useTranslation();
-  const login = useDevLogin();
-  const navigate = useNavigate();
-  const [tab, setTab] = useState<'phone' | 'dev'>('phone');
-
-  function pick(userId: string) {
-    login.mutate(userId, {
-      onSuccess: (session) => {
-        const portal = resolvePortal(session) ?? devUserById(session.userId)?.portal;
-        if (portal) navigate(portalHomePathForSession(session));
-      },
-    });
-  }
 
   const features = [
     {
@@ -215,67 +137,11 @@ export function DevSignIn({
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">
               {t('dev.signInTitle')}
             </p>
-            <h2 className="mt-2 font-display text-2xl font-bold text-ink">
-              {tab === 'phone' ? t('auth.phoneTitle') : t('auth.tabDev')}
-            </h2>
-            <p className="mt-2 text-sm text-slate">
-              {tab === 'phone' ? t('auth.phoneHelp') : t('signIn.devHelp')}
-            </p>
-
-            {import.meta.env.DEV && (
-              <div className="mt-6 flex rounded-2xl bg-surface-2 p-1.5">
-                <button
-                  type="button"
-                  onClick={() => setTab('phone')}
-                  className={`sign-in-tab ${tab === 'phone' ? 'sign-in-tab-active' : 'sign-in-tab-idle'}`}
-                >
-                  {t('auth.tabPhone')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab('dev')}
-                  className={`sign-in-tab ${tab === 'dev' ? 'sign-in-tab-active' : 'sign-in-tab-idle'}`}
-                >
-                  {t('auth.tabDev')}
-                </button>
-              </div>
-            )}
+            <h2 className="mt-2 font-display text-2xl font-bold text-ink">{t('auth.phoneTitle')}</h2>
+            <p className="mt-2 text-sm text-slate">{t('auth.phoneHelp')}</p>
 
             <div className="mt-6">
-              {tab === 'phone' ? (
-                <PhoneSignIn disabled={login.isPending} variant="panel" />
-              ) : (
-                <div className="flex flex-col gap-4">
-                  <p className="text-xs text-slate">{t('signIn.govHierarchyHelp')}</p>
-                  {govUsersByOrgLevel().map(({ level, users }) => (
-                    <UserGroup
-                      key={level}
-                      title={orgLevelLabel(level, t)}
-                      accent="gov"
-                      users={users}
-                      onPick={pick}
-                      disabled={login.isPending}
-                      showScope
-                    />
-                  ))}
-                  <UserGroup
-                    title={t('dev.vendorPortal')}
-                    accent="vendor"
-                    users={DEV_VENDOR_USERS}
-                    onPick={pick}
-                    disabled={login.isPending}
-                    showScope
-                  />
-                  <UserGroup
-                    title={t('dev.contractorPortal')}
-                    accent="contractor"
-                    users={DEV_CONTRACTOR_USERS}
-                    onPick={pick}
-                    disabled={login.isPending}
-                    showScope
-                  />
-                </div>
-              )}
+              <PhoneSignIn variant="panel" />
             </div>
 
             <p className="mt-8 text-center text-xs text-ink-3">{t('signIn.rightFooter')}</p>

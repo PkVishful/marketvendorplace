@@ -3,6 +3,7 @@ import { performanceFromScore } from './types';
 import { COIMBATORE_MAP } from './coimbatore';
 import { TAMIL_NADU_MAP } from './tamilNadu';
 import { DISTRICT_TALUKAS, ORG_PATH_ALIASES, formatDistrictName } from './talukaData';
+import { defaultTalukaDetails } from './talukaDetails';
 
 const TALUKA_PALETTE = [
   '#e63946',
@@ -44,6 +45,7 @@ function buildGridMap(key: string, name: string, talukaNames: string[]): Distric
       labelY: y + h / 2,
       score,
       performance: performanceFromScore(score),
+      details: defaultTalukaDetails(taluka, score),
     };
   });
 

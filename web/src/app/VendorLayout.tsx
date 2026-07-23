@@ -4,7 +4,7 @@ import { useSession, useSignOut } from '@/auth/useSession';
 import { devUserById } from '@/app/devUsers';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { useTheme } from '@/hooks/useTheme';
-import { primaryOrgScope, primaryRoleLabel, vendorNavForSession } from '@/lib/navConfig';
+import { primaryOrgScope, vendorNavForSession } from '@/lib/navConfig';
 import {
   useNotifications,
   unreadCount,
@@ -46,7 +46,6 @@ export function VendorLayout() {
       homePath="/vendor"
       navItems={navItems}
       userName={dev?.label ?? session?.fullName}
-      roleLabel={session?.authenticated ? primaryRoleLabel(session) : undefined}
       orgScope={orgScope}
       notificationHref="/vendor/notifications"
       notificationCount={unreadCount(notifications)}

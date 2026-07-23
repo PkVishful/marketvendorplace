@@ -8,7 +8,6 @@ import { DevSignIn } from './DevSignIn';
 import { devUserById } from './devUsers';
 import {
   primaryOrgScope,
-  primaryRoleLabel,
 } from '@/lib/navConfig';
 import {
   useNotifications,
@@ -106,7 +105,6 @@ export function AppShell() {
           <GovHeader
             portal={activePortal}
             userName={dev?.label ?? session?.fullName}
-            roleLabel={session?.authenticated ? primaryRoleLabel(session) : undefined}
             notificationHref={
               activePortal === 'vendor' && session?.authenticated
                 ? '/vendor/notifications'
@@ -120,7 +118,7 @@ export function AppShell() {
             onLangChange={handleLangChange}
           />
           {showScope && orgScope && (
-            <OrgScopeBar scope={orgScope} roleLabel={primaryRoleLabel(session)} />
+            <OrgScopeBar scope={orgScope} />
           )}
         </>
       )}

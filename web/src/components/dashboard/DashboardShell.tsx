@@ -137,9 +137,15 @@ export function DashboardShell({
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isTa = i18n.language === 'ta';
+  const settingsPath = `${homePath}/settings`;
+  const helpPath = `${homePath}/help`;
   const portalBadge =
     portal === 'gov' ? t('nav.govBadge') : portal === 'contractor' ? t('nav.contractorBadge') : t('nav.vendorBadge');
-  const pageLabel = breadcrumbLabel(location.pathname, homePath, navItems);
+  const pageLabel = (() => {
+    if (location.pathname === settingsPath) return t('settings.title');
+    if (location.pathname === helpPath) return t('help.title');
+    return breadcrumbLabel(location.pathname, homePath, navItems);
+  })();
 
   const initials = (userName ?? '?')
     .split(/\s+/)
@@ -238,24 +244,36 @@ export function DashboardShell({
               {t('nav.notifications')}
             </Link>
           )}
-          <button
-            type="button"
-            className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/75 hover:bg-white/10 hover:text-white"
+          <NavLink
+            to={settingsPath}
+            className={({ isActive }) =>
+              `flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${
+                isActive
+                  ? 'bg-white/15 font-semibold text-white'
+                  : 'text-white/75 hover:bg-white/10 hover:text-white'
+              }`
+            }
           >
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10">
               <Settings className="h-[18px] w-[18px]" strokeWidth={2} />
             </span>
             {t('dashboard.settings')}
-          </button>
-          <a
-            href="mailto:support@eworks.tn.gov.in"
-            className="flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/75 hover:bg-white/10 hover:text-white"
+          </NavLink>
+          <NavLink
+            to={helpPath}
+            className={({ isActive }) =>
+              `flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${
+                isActive
+                  ? 'bg-white/15 font-semibold text-white'
+                  : 'text-white/75 hover:bg-white/10 hover:text-white'
+              }`
+            }
           >
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10">
               <HelpCircle className="h-[18px] w-[18px]" strokeWidth={2} />
             </span>
             {t('dashboard.helpSupport')}
-          </a>
+          </NavLink>
         </div>
 
         <div className="shrink-0 border-t border-white/10 p-4">
@@ -365,13 +383,19 @@ export function DashboardShell({
                 </Link>
               )}
 
-              <a
-                href="mailto:support@eworks.tn.gov.in"
+              <NavLink
+                to={helpPath}
                 aria-label={t('dashboard.helpSupport')}
-                className="hidden min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-line bg-surface-2 hover:bg-surface-3 sm:grid"
+                className={({ isActive }) =>
+                  `hidden min-h-[44px] min-w-[44px] place-items-center rounded-xl border sm:grid ${
+                    isActive
+                      ? 'border-brand bg-brand-tint text-brand'
+                      : 'border-line bg-surface-2 hover:bg-surface-3'
+                  }`
+                }
               >
                 <HelpCircle className="h-5 w-5" strokeWidth={2} />
-              </a>
+              </NavLink>
 
               <DashboardUserMenu
                 name={userName}
@@ -383,8 +407,10 @@ export function DashboardShell({
           </div>
         </header>
 
-        <div id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+        <div id="main-content" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+          </div>
           {footer}
         </div>
       </div>

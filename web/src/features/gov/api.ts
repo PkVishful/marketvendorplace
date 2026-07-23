@@ -14,6 +14,7 @@ import type {
   ProcurementAnalyticsDTO,
   GovOfficerRow,
 } from '@/types/domain';
+import type { DashboardMapDTO } from '@/components/dashboard/districtMaps/liveRegions';
 
 export const govKeys = {
   projects: ['gov', 'projects'] as const,
@@ -27,6 +28,7 @@ export const govKeys = {
   quality: (projectId?: string) => ['gov', 'quality', projectId ?? 'all'] as const,
   ratings: ['gov', 'ratings'] as const,
   analytics: ['gov', 'analytics'] as const,
+  dashboardMap: ['gov', 'dashboard', 'map'] as const,
   audit: (before?: number) => ['gov', 'audit', before ?? 'start'] as const,
   auditChain: ['gov', 'audit', 'chain'] as const,
   officers: ['gov', 'officers'] as const,
@@ -173,6 +175,10 @@ export function fetchVendorRatings() {
 
 export function fetchProcurementAnalytics() {
   return apiClient.get<ProcurementAnalyticsDTO>('/api/gov/analytics');
+}
+
+export function fetchGovDashboardMap() {
+  return apiClient.get<DashboardMapDTO>('/api/gov/dashboard/map');
 }
 
 export function fetchAuditChain() {

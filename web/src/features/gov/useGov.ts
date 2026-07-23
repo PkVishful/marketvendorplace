@@ -26,6 +26,7 @@ import {
   fetchAuditChain,
   fetchAuditLog,
   fetchGovOfficers,
+  fetchGovDashboardMap,
 } from './api';
 
 export function useGovProjects() {
@@ -223,6 +224,13 @@ export function useVendorRatings() {
   return useQuery({
     queryKey: govKeys.ratings,
     queryFn: fetchVendorRatings,
+  });
+}
+
+export function useGovDashboardMap() {
+  return useQuery({
+    queryKey: govKeys.dashboardMap,
+    queryFn: fetchGovDashboardMap,
   });
 }
 

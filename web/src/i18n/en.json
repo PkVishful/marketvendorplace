@@ -67,7 +67,17 @@
       "recentProjects": "Recent projects",
       "viewTalukRfqs": "View RFQ pipeline",
       "viewTalukQuality": "Quality dashboard",
-      "clearSelection": "Clear taluk selection"
+      "clearSelection": "Clear taluk selection",
+      "loading": "Loading live performance…",
+      "loadFailed": "Live performance data unavailable",
+      "retry": "Retry",
+      "noData": "No data",
+      "noDataLegend": "No data",
+      "openOrders": "Open orders",
+      "activeJobs": "Active jobs",
+      "failedTests30d": "Failed tests (30d)",
+      "certificates30d": "Certificates (30d)",
+      "vendorsActive": "Labs engaged"
     },
     "deptPerformance": "Department Performance",
     "budgetSummary": "Budget Summary",
@@ -1256,5 +1266,41 @@
     "notApprovedTitle": "Complete your registration to bid",
     "notApprovedBody": "Open tenders appear here once your contractor registration is approved by the district officer.",
     "goToRegistration": "Go to registration"
+  },
+  "area": {
+    "nav": "Area",
+    "breadcrumbLabel": "Area hierarchy",
+    "crumbOutsideScope": "Outside your area",
+    "loading": "Loading area…",
+    "loadFailed": "Could not load this area",
+    "noData": "No data",
+    "childrenHeading": "Sub-areas",
+    "projectsHeading": "Sites & projects",
+    "emptyNode": "Nothing recorded under this area yet.",
+    "openChecklist": "Open test checklist",
+    "outsideTitle": "Outside your area",
+    "outsideBody": "This area is not part of the organisation unit you are assigned to.",
+    "backToMyArea": "Back to my area",
+    "testsCertified": "{{certified}} of {{required}} tests certified",
+    "openOrdersCount": "{{count}} open orders",
+    "kpi": {
+      "openOrders": "Open orders",
+      "activeJobs": "Active jobs",
+      "pendingApprovals": "Pending approvals",
+      "certificates30d": "Certificates (30d)",
+      "failedTests30d": "Failed tests (30d)",
+      "vendorsActive": "Labs engaged",
+      "qualityScore": "Quality score"
+    },
+    "level": {
+      "STATE": "State",
+      "DISTRICT": "District",
+      "DIVISION": "Division",
+      "CIRCLE": "Circle",
+      "SUBDIVISION": "Subdivision",
+      "SECTION": "Section",
+      "FIELD_UNIT": "Field unit",
+      "PROJECT": "Site"
+    }
   }
 }

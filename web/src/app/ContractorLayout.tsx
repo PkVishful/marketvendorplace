@@ -39,7 +39,6 @@ export function ContractorLayout() {
       homePath="/contractor"
       navItems={navItems}
       userName={dev?.label ?? session?.fullName}
-      roleLabel={t('contractor.roleLabel')}
       orgScope={orgScope}
       theme={theme}
       onToggleTheme={toggleTheme}
