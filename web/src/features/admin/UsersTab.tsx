@@ -4,6 +4,7 @@ import { FeedSkeleton } from '@/components/Skeleton';
 import { Pagination } from '@/components/Pagination';
 import { UserGroupTabs, type UserGroup } from './UserGroupTabs';
 import { EditUserRow } from './EditUserRow';
+import { UserDetailPane } from './UserDetailPane';
 import {
   useAdminOrgUnits,
   useAdminUsers,
@@ -18,6 +19,7 @@ export function UsersTab() {
   const [group, setGroup] = useState<UserGroup>('');
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -26,6 +28,7 @@ export function UsersTab() {
 
   const { data: usersPage, isPending, isError, refetch } = useAdminUsers(q, group, page);
   const users = usersPage?.rows;
+  const selected = users?.find((u) => u.userId === selectedId) ?? null;
   const { data: orgUnits } = useAdminOrgUnits();
   const { data: grantable } = useGrantableRoles(orgUnitId);
   const createUser = useCreateAdminUser();
@@ -147,13 +150,14 @@ export function UsersTab() {
         onChange={(g) => { setGroup(g); setPage(1); }}
       />
 
-      <div className="gov-card overflow-hidden">
-        <table className="w-full min-w-[640px] text-left text-sm">
+      <div className={`flex gap-5 ${selected ? 'flex-col xl:flex-row' : ''}`}>
+      <div className={`gov-card overflow-hidden ${selected ? 'xl:w-[22rem] xl:shrink-0' : 'flex-1'}`}>
+        <table className="w-full text-left text-sm">
           <thead className="bg-surface-2 text-xs uppercase tracking-wider text-ink-3">
             <tr>
               <th className="px-4 py-3">{t('admin.fullName')}</th>
-              <th className="px-4 py-3">{t('admin.mobile')}</th>
-              <th className="px-4 py-3">{t('admin.rolesCol')}</th>
+              {!selected && <th className="px-4 py-3">{t('admin.mobile')}</th>}
+              {!selected && <th className="px-4 py-3">{t('admin.rolesCol')}</th>}
               <th className="px-4 py-3 text-right">{t('admin.actions')}</th>
             </tr>
           </thead>
@@ -162,7 +166,11 @@ export function UsersTab() {
               editing === u.userId ? (
                 <EditUserRow key={u.userId} user={u} onDone={() => setEditing(null)} />
               ) : (
-              <tr key={u.userId}>
+              <tr
+                key={u.userId}
+                onClick={() => setSelectedId(u.userId)}
+                className={`cursor-pointer ${u.userId === selectedId ? 'bg-brand-tint/40' : 'hover:bg-surface-2'}`}
+              >
                 <td className="px-4 py-3 font-semibold text-ink">
                   {u.fullName}
                   {u.isActive === false && (
@@ -172,7 +180,8 @@ export function UsersTab() {
                   )}
                   <span className="block text-xs font-normal text-ink-3">{u.email || '—'}</span>
                 </td>
-                <td className="px-4 py-3 tabular-nums">{u.phone}</td>
+                {!selected && <td className="px-4 py-3 tabular-nums">{u.phone}</td>}
+                {!selected && (
                 <td className="px-4 py-3">
                   <ul className="space-y-1">
                     {u.roles.map((r) => (
@@ -198,6 +207,7 @@ export function UsersTab() {
                     ))}
                   </ul>
                 </td>
+                )}
                 <td className="px-4 py-3 text-right">
                   <button
                     type="button"
@@ -212,6 +222,17 @@ export function UsersTab() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {selected && (
+        <div className="gov-card min-w-0 flex-1 p-5">
+          <UserDetailPane
+            user={selected}
+            onEdit={() => setEditing(selected.userId)}
+            onClose={() => setSelectedId(null)}
+          />
+        </div>
+      )}
       </div>
 
       <Pagination

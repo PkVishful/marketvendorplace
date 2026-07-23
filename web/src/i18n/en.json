@@ -291,7 +291,15 @@
     "active": "Active",
     "inactive": "Inactive",
     "email": "Email",
-    "editFailed": "Could not save changes."
+    "editFailed": "Could not save changes.",
+    "closeDetail": "Close user details",
+    "userTabs": "User detail sections",
+    "moreDetails": "More details",
+    "recentActivities": "Recent activities",
+    "loadingActivities": "Loading activity…",
+    "activitiesFailed": "Could not load activity.",
+    "noActivities": "No recorded activity for this user yet.",
+    "status": "Status"
   },
   "pricing": {
     "title": "My rates",

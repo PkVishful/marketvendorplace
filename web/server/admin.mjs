@@ -240,6 +240,39 @@ export function registerAdminRoutes(app, { requireUser, withUserSession }) {
 
   // Edit an existing officer/user. Roles are managed by the grant/revoke routes
   // below; this only touches the profile fields.
+  // Activity feed for one user, for the detail pane's Recent Activities tab.
+  //
+  // Reads audit_logs, which is append-only and hash-chained, so this is the
+  // real record of what the person did rather than a separate activity table
+  // that could drift from it.
+  app.get('/api/admin/users/:id/activities', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 100);
+    try {
+      const rows = await withUserSession(userId, async (client) => {
+        await requireAdminPerm(client, 'user.manage');
+        const q = await client.query(
+          `select seq,
+                  action,
+                  entity_type as "entityType",
+                  entity_id   as "entityId",
+                  occurred_at as "occurredAt",
+                  payload
+             from eworks.audit_logs
+            where actor_id = $1
+            order by occurred_at desc
+            limit $2`,
+          [req.params.id, limit],
+        );
+        return q.rows;
+      });
+      res.json(rows);
+    } catch (err) {
+      res.status(err.httpStatus ?? 500).json({ error: 'user_activities_failed', detail: err.message });
+    }
+  });
+
   app.patch('/api/admin/users/:id', async (req, res) => {
     const userId = requireUser(req, res);
     if (!userId) return;

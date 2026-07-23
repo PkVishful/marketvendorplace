@@ -13,7 +13,16 @@ import {
   setAdminSetting,
   setRolePermissions,
   updateAdminUser,
+  fetchUserActivities,
 } from './api';
+
+export function useUserActivities(userId: string | null) {
+  return useQuery({
+    queryKey: adminKeys.userActivities(userId ?? 'none'),
+    queryFn: () => fetchUserActivities(userId as string),
+    enabled: Boolean(userId),
+  });
+}
 
 export function useUpdateAdminUser() {
   const invalidate = useInvalidate([['admin', 'users']]);

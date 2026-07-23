@@ -12,8 +12,21 @@ export const adminKeys = {
   orgUnits: ['admin', 'org-units'] as const,
   roles: ['admin', 'roles'] as const,
   settings: ['admin', 'settings'] as const,
+  userActivities: (userId: string) => ['admin', 'users', userId, 'activities'] as const,
   grantableRoles: (orgUnitId: string) => ['admin', 'grantable-roles', orgUnitId] as const,
 };
+
+export interface UserActivity {
+  seq: number;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  occurredAt: string;
+  payload: unknown;
+}
+
+export const fetchUserActivities = (userId: string) =>
+  apiClient.get<UserActivity[]>(`/api/admin/users/${userId}/activities`);
 
 export const updateAdminUser = (
   userId: string,
