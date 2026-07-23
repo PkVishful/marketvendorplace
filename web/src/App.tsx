@@ -26,6 +26,7 @@ import { OnboardingWizard } from '@/features/kyc/OnboardingWizard';
 import { RatesPage } from '@/features/pricing/RatesPage';
 import { ProjectChecklistPage } from '@/features/gov/ProjectChecklistPage';
 import { AreaPage } from '@/features/gov/area/AreaPage';
+import { GettingStartedPage } from '@/features/gov/gettingStarted/GettingStartedPage';
 import { SettingsShell } from '@/features/admin/SettingsShell';
 import { OrgProfilePage } from '@/features/admin/OrgProfilePage';
 import { RoleDetailPage } from '@/features/admin/RoleDetailPage';
@@ -78,6 +79,7 @@ export function App() {
         <Route element={<RequirePortal portal="gov" />}>
           <Route path="/gov" element={<GovLayout />}>
             <Route index element={<GovHomePage />} />
+            <Route path="getting-started" element={<GettingStartedPage />} />
             <Route path="area" element={<AreaPage />} />
             <Route path="area/:orgUnitId" element={<AreaPage />} />
             <Route path="planner" element={<PlannerPage />} />
