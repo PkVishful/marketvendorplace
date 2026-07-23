@@ -1306,5 +1306,25 @@
     "searchLabel": "பெயரால் உட்பகுதிகளைத் தேடு",
     "showingCount": "{{total}} இல் {{shown}} காட்டப்படுகிறது",
     "noSearchMatch": "“{{query}}” உடன் பொருந்தும் உட்பகுதி இல்லை."
+  },
+  "signInEmail": {
+    "title": "உள்நுழைக",
+    "subtitle": "TN eWorks ஐ அணுக",
+    "emailLabel": "மின்னஞ்சல்",
+    "emailPlaceholder": "மின்னஞ்சல் முகவரி",
+    "passwordLabel": "கடவுச்சொல்",
+    "passwordPlaceholder": "கடவுச்சொல்லை உள்ளிடவும்",
+    "forgotPassword": "கடவுச்சொல் மறந்തുவிட்டதா?",
+    "submit": "உள்நுழைக",
+    "signingIn": "உள்நுழைகிறது…",
+    "invalidCredentials": "மின்னஞ்சல் அல்லது கடவுச்சொல் தவறு.",
+    "showPassword": "கடவுச்சொல்லைக் காட்டு",
+    "hidePassword": "கடவுச்சொல்லை மறை",
+    "mfaTitle": "இரு-படி குறியீடு",
+    "mfaLabel": "அங்கீகரிப்பு குறியீடு",
+    "mfaSentTo": "{{phone}} க்கு குறியீடு அனுப்பப்பட்டது",
+    "demoMfa": "டெமோ முறை — உங்கள் MFA குறியீடு",
+    "invalidMfa": "குறியீடு தவறு. மீண்டும் முயற்சிக்கவும்.",
+    "back": "உள்நுழைவுக்குத் திரும்பு"
   }
 }

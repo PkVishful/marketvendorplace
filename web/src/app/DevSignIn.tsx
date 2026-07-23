@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TnEmblem } from '@/components/TnEmblem';
-import { PhoneSignIn } from '@/features/auth/PhoneSignIn';
+import { EmailSignIn } from '@/features/auth/EmailSignIn';
 import { LANGUAGES } from '@/i18n';
 import { Building2, Moon, ShieldCheck, Sun, TestTube2 } from '@/lib/navIcons';
 
@@ -137,14 +137,11 @@ export function DevSignIn({
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">
               {t('dev.signInTitle')}
             </p>
-            <h2 className="mt-2 font-display text-2xl font-bold text-ink">{t('auth.phoneTitle')}</h2>
-            <p className="mt-2 text-sm text-slate">{t('auth.phoneHelp')}</p>
-
-            <div className="mt-6">
-              <PhoneSignIn variant="panel" />
+            {/* Title and helper copy live in EmailSignIn so the heading matches
+                the step being shown (credentials vs second factor). */}
+            <div className="mt-4">
+              <EmailSignIn />
             </div>
-
-            <p className="mt-8 text-center text-xs text-ink-3">{t('signIn.rightFooter')}</p>
           </div>
         </div>
       </section>

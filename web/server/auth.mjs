@@ -43,6 +43,25 @@ export async function findUserIdByPhone(pool, phone) {
   return rows[0]?.id ?? null;
 }
 
+/**
+ * Look up a sign-in candidate by email.
+ *
+ * Returns the row even when password_hash is null (an account provisioned but
+ * never given a password). The caller must still run verifyPassword against a
+ * dummy hash in that case, so a passwordless account is not distinguishable
+ * from a wrong password by response timing.
+ */
+export async function findUserByEmail(pool, email) {
+  if (typeof email !== 'string' || !email.trim()) return null;
+  const { rows } = await pool.query(
+    `select id, email, phone, password_hash as "passwordHash", is_active as "isActive"
+       from eworks.user_profiles
+      where lower(email) = lower($1)`,
+    [email.trim()],
+  );
+  return rows[0] ?? null;
+}
+
 export async function userRequiresMfa(pool, userId) {
   const { rows } = await pool.query(
     `select role_code from eworks.user_roles where user_id = $1`,

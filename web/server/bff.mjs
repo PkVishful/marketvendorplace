@@ -10,13 +10,15 @@ import { pathToFileURL } from 'node:url';
 import { registerAdminRoutes } from './admin.mjs';
 import { withUserSession, lookupProfile, pool } from './db.mjs';
 import {
-  buildSession, findUserIdByPhone, issueChallenge, userRequiresMfa, verifyChallenge,
+  buildSession, findUserIdByPhone, findUserByEmail, issueChallenge, userRequiresMfa,
+  verifyChallenge,
 } from './auth.mjs';
 import { saveKycDocument, readKycDocument } from './kyc-upload.mjs';
 import { saveContractorDocument, readContractorDocument } from './kyc-upload.mjs';
 import { saveCheckinPhoto, readCheckinPhoto, sniffImageType } from './checkin-photo.mjs';
 import { saveCertificate, readCertificate } from './certificate-file.mjs';
 import { loadConfig } from './env.mjs';
+import { verifyPassword, DUMMY_PASSWORD_HASH } from './password.mjs';
 import { computeMilestoneHealth } from './region-health.mjs';
 import {
   loadChildRegions, loadCollapseChain, loadAncestors, loadProjects, loadSubtreeSummary,
@@ -263,6 +265,78 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
       const session = await buildSession(challenge.userId);
       if (!session) return res.status(404).json({ error: 'unknown_user' });
       setSessionCookie(res, challenge.userId, config);
+      res.json(session);
+    } catch (err) {
+      res.status(500).json({ error: 'login_failed', detail: err.message });
+    }
+  });
+
+  // Email + password sign-in.
+  //
+  // Reuses the OTP path's IP rate limiter: password guessing is the same class
+  // of attack as OTP guessing and deserves the same throttle.
+  app.post('/api/auth/login', otpIpLimiter, async (req, res) => {
+    const { email, password } = req.body || {};
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'email_and_password_required' });
+    }
+    try {
+      const user = await findUserByEmail(pool, email);
+
+      // Always run a verification, even when the account is missing or has no
+      // password set. Returning early would make "no such account" measurably
+      // faster than "wrong password" and turn login into an account oracle.
+      const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+
+      if (!user || !ok || user.isActive === false) {
+        return res.status(401).json({ error: 'invalid_credentials' });
+      }
+
+      // MFA is unchanged: government roles still get a second factor. Moving
+      // the first factor from OTP to a password does not remove the second.
+      const requiresMfa = config.mfaEnabled && (await userRequiresMfa(pool, user.id));
+      if (requiresMfa) {
+        // The second factor still goes to the registered phone. The challenge
+        // store is keyed by phone, so the client never sees or sends it — it
+        // replays only the email, and the server re-resolves the phone.
+        const challenge = await issueChallenge({
+          phone: user.phone, userId: user.id, purpose: 'mfa', config, provider,
+        });
+        if (!challenge) return res.status(500).json({ error: 'mfa_unavailable' });
+        return res.json({
+          mfaRequired: true,
+          email: user.email,
+          maskedPhone: challenge.maskedPhone,
+          ...(config.demoMode ? { demoMfa: challenge.demoCode } : {}),
+        });
+      }
+
+      const session = await buildSession(user.id);
+      if (!session) return res.status(404).json({ error: 'unknown_user' });
+      setSessionCookie(res, user.id, config);
+      res.json(session);
+    } catch (err) {
+      res.status(500).json({ error: 'login_failed', detail: err.message });
+    }
+  });
+
+  app.post('/api/auth/login/mfa', otpIpLimiter, async (req, res) => {
+    const { email, mfaCode } = req.body || {};
+    if (typeof email !== 'string' || typeof mfaCode !== 'string') {
+      return res.status(400).json({ error: 'email_and_code_required' });
+    }
+    try {
+      const user = await findUserByEmail(pool, email);
+      if (!user) return res.status(401).json({ error: 'invalid_credentials' });
+
+      const result = verifyChallenge({
+        phone: user.phone, code: mfaCode, purpose: 'mfa', config,
+      });
+      if (!result.ok) return res.status(401).json({ error: 'invalid_mfa', reason: result.reason });
+
+      const session = await buildSession(user.id);
+      if (!session) return res.status(404).json({ error: 'unknown_user' });
+      setSessionCookie(res, user.id, config);
       res.json(session);
     } catch (err) {
       res.status(500).json({ error: 'login_failed', detail: err.message });

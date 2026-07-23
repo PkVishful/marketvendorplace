@@ -73,3 +73,37 @@ export function useOtpVerify() {
     },
   });
 }
+
+export interface LoginResult extends Partial<Session> {
+  /** Government roles keep a second factor; the password only replaces the first. */
+  mfaRequired?: boolean;
+  email?: string;
+  maskedPhone?: string;
+  /** Demo builds only (DEMO_MODE=true, never in production). */
+  demoMfa?: string;
+}
+
+export function usePasswordLogin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { email: string; password: string }) =>
+      apiClient.post<LoginResult>('/api/auth/login', body),
+    onSuccess: (data) => {
+      if (data.mfaRequired) return; // not signed in yet — second factor pending
+      qc.clear();
+      void qc.invalidateQueries();
+    },
+  });
+}
+
+export function usePasswordLoginMfa() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { email: string; mfaCode: string }) =>
+      apiClient.post<Session>('/api/auth/login/mfa', body),
+    onSuccess: () => {
+      qc.clear();
+      void qc.invalidateQueries();
+    },
+  });
+}

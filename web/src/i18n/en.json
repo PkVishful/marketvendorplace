@@ -1306,5 +1306,25 @@
     "searchLabel": "Search sub-areas by name",
     "showingCount": "Showing {{shown}} of {{total}}",
     "noSearchMatch": "No sub-area matches “{{query}}”."
+  },
+  "signInEmail": {
+    "title": "Sign in",
+    "subtitle": "to access TN eWorks",
+    "emailLabel": "Email",
+    "emailPlaceholder": "Email address",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Enter password",
+    "forgotPassword": "Forgot Password?",
+    "submit": "Sign in",
+    "signingIn": "Signing in…",
+    "invalidCredentials": "Incorrect email or password.",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "mfaTitle": "Two-factor code",
+    "mfaLabel": "Authenticator code",
+    "mfaSentTo": "Code sent to {{phone}}",
+    "demoMfa": "Demo mode — your MFA code is",
+    "invalidMfa": "That code is not valid. Try again.",
+    "back": "Back to sign in"
   }
 }
