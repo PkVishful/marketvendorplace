@@ -16,7 +16,11 @@
     "contact": "support@eworks.tn.gov.in · 1800-XXX-XXXX",
     "lastUpdated": "© {{year}} Government of Tamil Nadu",
     "authBullet1": "HTTP-only session cookie — no tokens in the browser",
-    "authBullet2": "Row-level security enforced on every database query"
+    "authBullet2": "Row-level security enforced on every database query",
+    "districtLabel": "District",
+    "departmentLabel": "Department",
+    "departmentName": "Public Works Department",
+    "govOfTn": "Government of Tamil Nadu"
   },
   "dashboard": {
     "welcome": "Welcome",

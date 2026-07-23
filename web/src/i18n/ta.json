@@ -16,7 +16,11 @@
     "contact": "support@eworks.tn.gov.in",
     "lastUpdated": "© {{year}} தமிழ்நாடு அரசு",
     "authBullet1": "HTTP-only குக்கீ அமர்வு",
-    "authBullet2": "தரவுத்தள RLS"
+    "authBullet2": "தரவுத்தள RLS",
+    "districtLabel": "மாவட்டம்",
+    "departmentLabel": "துறை",
+    "departmentName": "பொதுப்பணித்துறை",
+    "govOfTn": "தமிழ்நாடு அரசு"
   },
   "dashboard": {
     "welcome": "வரவேற்பு",
