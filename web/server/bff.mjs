@@ -18,7 +18,8 @@ import { saveContractorDocument, readContractorDocument } from './kyc-upload.mjs
 import { saveCheckinPhoto, readCheckinPhoto, sniffImageType } from './checkin-photo.mjs';
 import { saveCertificate, readCertificate } from './certificate-file.mjs';
 import { loadConfig } from './env.mjs';
-import { verifyPassword, DUMMY_PASSWORD_HASH } from './password.mjs';
+import { verifyPassword, hashPassword, DUMMY_PASSWORD_HASH, PASSWORD_MIN_LENGTH } from './password.mjs';
+import { generateResetToken, hashResetToken, isExpired, RESET_TOKEN_TTL_MS } from './password-reset.mjs';
 import { computeMilestoneHealth } from './region-health.mjs';
 import {
   loadChildRegions, loadCollapseChain, loadAncestors, loadProjects, loadSubtreeSummary,
@@ -340,6 +341,110 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
       res.json(session);
     } catch (err) {
       res.status(500).json({ error: 'login_failed', detail: err.message });
+    }
+  });
+
+  // --- password reset ------------------------------------------------------
+  //
+  // Both routes run before there is a session, so they use the pool directly
+  // rather than withUserSession.
+
+  app.post('/api/auth/password/forgot', otpIpLimiter, async (req, res) => {
+    const { email } = req.body || {};
+
+    // One response for every outcome — unknown address, inactive account,
+    // delivery failure. Anything else turns this into a way to test which
+    // email addresses hold accounts.
+    const generic = { sent: true };
+
+    if (typeof email !== 'string' || !email.trim()) return res.json(generic);
+
+    try {
+      const user = await findUserByEmail(pool, email);
+      if (!user || user.isActive === false) return res.json(generic);
+
+      const token = generateResetToken();
+      await pool.query(
+        `insert into eworks.password_reset_tokens
+           (user_id, token_hash, expires_at, requested_ip)
+         values ($1, $2, now() + ($3 || ' milliseconds')::interval, $4)`,
+        [user.id, hashResetToken(token, config.otpPepper), String(RESET_TOKEN_TTL_MS), req.ip ?? null],
+      );
+
+      const link = `/reset-password?token=${token}`;
+      // Delivery is out of scope here: dev prints the link, production will
+      // hand this to the mail provider. It is never returned in the response.
+      console.log(`[password-reset] ${user.email}: ${link}`);
+
+      // Demo builds surface the link so the flow is walkable without a mailbox.
+      // config.demoMode is hard-false whenever NODE_ENV/EWORKS_ENV is production.
+      return res.json(config.demoMode ? { ...generic, demoResetLink: link } : generic);
+    } catch (err) {
+      // Even a failure returns the generic body; the detail goes to the log.
+      console.error('[password-reset] issue failed:', err.message);
+      return res.json(generic);
+    }
+  });
+
+  app.post('/api/auth/password/reset', otpIpLimiter, async (req, res) => {
+    const { token, password } = req.body || {};
+    if (typeof token !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'token_and_password_required' });
+    }
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      return res.status(400).json({
+        error: 'weak_password',
+        detail: `password must be at least ${PASSWORD_MIN_LENGTH} characters`,
+      });
+    }
+
+    try {
+      const hash = hashResetToken(token, config.otpPepper);
+      const q = await pool.query(
+        `select id, user_id as "userId", expires_at as "expiresAt", used_at as "usedAt"
+           from eworks.password_reset_tokens where token_hash = $1`,
+        [hash],
+      );
+      const row = q.rows[0];
+
+      // Unknown, already redeemed and expired all answer the same way: a
+      // distinct message would tell an attacker which tokens ever existed.
+      if (!row || row.usedAt || isExpired(row.expiresAt)) {
+        return res.status(400).json({ error: 'invalid_or_expired_token' });
+      }
+
+      const passwordHash = await hashPassword(password);
+
+      // A dedicated client, not pool.query: a pool hands out a different
+      // connection per call, so BEGIN would apply to one connection while the
+      // updates ran on others and the transaction would be meaningless.
+      const client = await pool.connect();
+      try {
+        await client.query('begin');
+        await client.query(
+          `update eworks.user_profiles set password_hash = $2 where id = $1`,
+          [row.userId, passwordHash],
+        );
+        // Marks this token used and kills any other outstanding one for the
+        // user in the same statement — whoever just reset the password should
+        // not leave a spare key behind.
+        await client.query(
+          `update eworks.password_reset_tokens
+              set used_at = now()
+            where user_id = $1 and used_at is null`,
+          [row.userId],
+        );
+        await client.query('commit');
+      } catch (err) {
+        try { await client.query('rollback'); } catch { /* connection already gone */ }
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: 'reset_failed', detail: err.message });
     }
   });
 

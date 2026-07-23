@@ -1463,5 +1463,32 @@
     "colName": "Name",
     "colLevel": "Level",
     "colPath": "Path"
+  },
+  "forgot": {
+    "title": "Forgot your password?",
+    "subtitle": "Enter your email and we will send a link to set a new one.",
+    "emailLabel": "Email",
+    "submit": "Send reset link",
+    "sending": "Sending…",
+    "sentTitle": "Check your email",
+    "sentBody": "If that address has an account, a reset link is on its way. The link expires in 30 minutes.",
+    "demoNote": "Demo mode —",
+    "demoOpen": "open the reset link",
+    "backToSignIn": "Back to sign in"
+  },
+  "reset": {
+    "title": "Set a new password",
+    "subtitle": "Choose a password of at least {{min}} characters.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "submit": "Update password",
+    "saving": "Saving…",
+    "tooShort": "Password must be at least {{min}} characters.",
+    "mismatch": "The two passwords do not match.",
+    "invalidToken": "That reset link is invalid or has expired. Request a new one.",
+    "failed": "Could not reset the password. Try again.",
+    "missingTitle": "Reset link missing",
+    "missingBody": "This page needs a reset link from your email.",
+    "requestNew": "Request a new link"
   }
 }

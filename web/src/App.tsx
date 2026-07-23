@@ -20,6 +20,8 @@ import { OrderDetailPage } from '@/features/orders/OrderDetailPage';
 import { JobsPage } from '@/features/jobs/JobsPage';
 import { JobDetailPage } from '@/features/jobs/JobDetailPage';
 import { VerifyCertificatePage } from '@/features/public/VerifyCertificatePage';
+import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
 import { AnalyticsPage } from '@/features/gov/AnalyticsPage';
 import { VendorDashboard } from '@/features/vendor/VendorDashboard';
 import { OnboardingWizard } from '@/features/kyc/OnboardingWizard';
@@ -46,6 +48,8 @@ export function App() {
       <Route element={<AppShell />}>
         <Route path="/" element={<PortalHome />} />
         <Route path="/sign-in" element={null} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify" element={<VerifyCertificatePage />} />
         <Route path="/verify/:certId" element={<VerifyCertificatePage />} />
 
