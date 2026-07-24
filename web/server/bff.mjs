@@ -24,6 +24,7 @@ import { computeMilestoneHealth } from './region-health.mjs';
 import {
   loadChildRegions, loadCollapseChain, loadAncestors, loadProjects, loadSubtreeSummary,
 } from './area-queries.mjs';
+import { financeSummary, financeDistricts } from './oversight-queries.mjs';
 import { pickEffectiveNode, buildBreadcrumbs } from './area.mjs';
 import { selectProvider } from './otp/provider.mjs';
 import { shapeChecklist, deriveReqStatus } from './catalog.mjs';
@@ -2082,6 +2083,28 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
         };
       });
       res.json(payload);
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
+  app.get('/api/gov/oversight/finance/summary', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const payload = await withUserSession(userId, (client) => financeSummary(client));
+      res.json(payload);
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
+  app.get('/api/gov/oversight/finance/districts', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const rows = await withUserSession(userId, (client) => financeDistricts(client));
+      res.json(rows);
     } catch (err) {
       res.status(500).json({ error: 'query_failed', detail: err.message });
     }
