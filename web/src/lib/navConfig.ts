@@ -23,6 +23,7 @@ export const GOV_NAV_TAB_KEYS = [
   { key: 'quality', labelKey: 'quality.nav' },
   { key: 'ratings', labelKey: 'ratings.nav' },
   { key: 'analytics', labelKey: 'analytics.nav' },
+  { key: 'oversight', labelKey: 'oversight.nav' },
   { key: 'audit', labelKey: 'audit.nav' },
 ] as const;
 
@@ -40,6 +41,7 @@ const GOV_ALL: NavItem[] = [
   { to: '/gov/quality', labelKey: 'quality.nav', navKey: 'quality', requiresPermission: ['result.verify', 'order.read'] },
   { to: '/gov/ratings', labelKey: 'ratings.nav', navKey: 'ratings', requiresPermission: 'vendor.read' },
   { to: '/gov/analytics', labelKey: 'analytics.nav', navKey: 'analytics', requiresPermission: 'order.read' },
+  { to: '/gov/oversight', labelKey: 'oversight.nav', navKey: 'oversight', requiresPermission: 'order.read' },
   { to: '/gov/audit', labelKey: 'audit.nav', navKey: 'audit', requiresPermission: ['audit.read', 'audit.read_all'] },
 ];
 

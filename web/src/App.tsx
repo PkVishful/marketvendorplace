@@ -23,6 +23,7 @@ import { VerifyCertificatePage } from '@/features/public/VerifyCertificatePage';
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
 import { AnalyticsPage } from '@/features/gov/AnalyticsPage';
+import { OversightPage } from '@/features/gov/oversight/OversightPage';
 import { VendorDashboard } from '@/features/vendor/VendorDashboard';
 import { OnboardingWizard } from '@/features/kyc/OnboardingWizard';
 import { RatesPage } from '@/features/pricing/RatesPage';
@@ -96,6 +97,7 @@ export function App() {
             <Route path="quality" element={<QualityDashboardPage />} />
             <Route path="ratings" element={<VendorRatingsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="oversight" element={<OversightPage />} />
             <Route path="audit" element={<AuditLogPage />} />
             <Route path="settings" element={<SettingsShell />}>
               <Route index element={<Navigate to="organization/profile" replace />} />
