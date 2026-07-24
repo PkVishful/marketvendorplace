@@ -330,6 +330,18 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     }
   });
 
+  app.get('/api/public/tenders', async (_req, res) => {
+    try { res.json(await publicTenderBoard(pool)); }
+    catch (err) { res.status(500).json({ error: 'query_failed', detail: err.message }); }
+  });
+  app.get('/api/public/tenders/:noticeId', async (req, res) => {
+    try {
+      const row = await publicTenderDetail(pool, req.params.noticeId);
+      if (!row) return res.json({ found: false });
+      res.json({ found: true, ...row });
+    } catch (err) { res.status(500).json({ error: 'query_failed', detail: err.message }); }
+  });
+
   app.get('/api/me', async (req, res) => {
     const userId = readSessionCookie(req, config);
     if (!userId) return res.status(401).json({ authenticated: false });
@@ -3124,6 +3136,68 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     } catch (err) {
       res.status(400).json({ error: 'bid_failed', detail: err.message });
     }
+  });
+
+  app.get('/api/contractor/eligibility', async (req, res) => {
+    const userId = requireUser(req, res); if (!userId) return;
+    try { res.json(await withUserSession(userId, (c) => contractorEligibility(c))); }
+    catch (err) { res.status(500).json({ error: 'query_failed', detail: err.message }); }
+  });
+
+  async function ownContractorId(client) {
+    const q = await client.query(`select id from eworks.contractors where owner_user_id = eworks.current_user_id()`);
+    if (q.rowCount === 0) throw new Error('no contractor profile');
+    return q.rows[0].id;
+  }
+
+  app.post('/api/contractor/eligibility/experience', async (req, res) => {
+    const userId = requireUser(req, res); if (!userId) return;
+    const { workName, clientName, valuePaise, completedOn } = req.body || {};
+    if (!workName || !Number.isFinite(Number(valuePaise)) || Number(valuePaise) <= 0) return res.status(400).json({ error: 'bad_experience' });
+    try {
+      await withUserSession(userId, async (c) => {
+        const cid = await ownContractorId(c);
+        await c.query(`insert into eworks.contractor_experience (contractor_id, work_name, client_name, value_paise, completed_on) values ($1,$2,$3,$4,$5)`,
+          [cid, workName, clientName ?? '', Number(valuePaise), completedOn || null]);
+      });
+      res.json(await withUserSession(userId, (c) => contractorEligibility(c)));
+    } catch (err) { res.status(400).json({ error: 'save_failed', detail: err.message }); }
+  });
+
+  app.post('/api/contractor/eligibility/machinery', async (req, res) => {
+    const userId = requireUser(req, res); if (!userId) return;
+    const { name, quantity, capacity } = req.body || {};
+    if (!name || !Number.isFinite(Number(quantity)) || Number(quantity) <= 0) return res.status(400).json({ error: 'bad_machinery' });
+    try {
+      await withUserSession(userId, async (c) => {
+        const cid = await ownContractorId(c);
+        await c.query(`insert into eworks.contractor_machinery (contractor_id, name, quantity, capacity) values ($1,$2,$3,$4)`, [cid, name, Number(quantity), capacity ?? '']);
+      });
+      res.json(await withUserSession(userId, (c) => contractorEligibility(c)));
+    } catch (err) { res.status(400).json({ error: 'save_failed', detail: err.message }); }
+  });
+
+  app.post('/api/contractor/eligibility/engineers', async (req, res) => {
+    const userId = requireUser(req, res); if (!userId) return;
+    const { name, qualification, role } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'name_required' });
+    try {
+      await withUserSession(userId, async (c) => {
+        const cid = await ownContractorId(c);
+        await c.query(`insert into eworks.contractor_engineers (contractor_id, name, qualification, role) values ($1,$2,$3,$4)`, [cid, name, qualification ?? '', role ?? '']);
+      });
+      res.json(await withUserSession(userId, (c) => contractorEligibility(c)));
+    } catch (err) { res.status(400).json({ error: 'save_failed', detail: err.message }); }
+  });
+
+  app.delete('/api/contractor/eligibility/:kind/:id', async (req, res) => {
+    const userId = requireUser(req, res); if (!userId) return;
+    const table = { experience: 'contractor_experience', machinery: 'contractor_machinery', engineers: 'contractor_engineers' }[req.params.kind];
+    if (!table) return res.status(400).json({ error: 'bad_kind' });
+    try {
+      await withUserSession(userId, (c) => c.query(`delete from eworks.${table} where id=$1`, [req.params.id])); // RLS ensures own-row only
+      res.json(await withUserSession(userId, (c) => contractorEligibility(c)));
+    } catch (err) { res.status(400).json({ error: 'delete_failed', detail: err.message }); }
   });
 
   // Terminal error handler — must be registered after all routes/middleware
