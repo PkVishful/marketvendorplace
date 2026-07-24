@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { FeedSkeleton } from '@/components/Skeleton';
+import { Pagination } from '@/components/Pagination';
+import { pageWindow } from '@/lib/pagination';
 import { formatDate } from '@/lib/time';
 import { HealthPill } from './HealthPill';
 import { useGovProjects, useQualityDashboard } from './useGov';
@@ -11,11 +13,18 @@ export function QualityDashboardPage() {
   const { t } = useTranslation();
   const { data: projects } = useGovProjects();
   const [projectFilter, setProjectFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
   const { data, isPending, isError, refetch } = useQualityDashboard(projectFilter || undefined);
 
   if (isPending) return <FeedSkeleton />;
 
   const counts = data?.counts ?? { green: 0, amber: 0, red: 0, neutral: 0 };
+  // The list runs to a hundred-plus milestones; page it so the table fits a
+  // screen instead of an endless scroll.
+  const milestones = data?.milestones ?? [];
+  const win = pageWindow({ total: milestones.length, page, pageSize: PAGE_SIZE });
+  const visible = milestones.slice((win.page - 1) * PAGE_SIZE, win.page * PAGE_SIZE);
 
   return (
     <section className="space-y-6">
@@ -29,7 +38,10 @@ export function QualityDashboardPage() {
           <select
             className="gov-input mt-1"
             value={projectFilter}
-            onChange={(e) => setProjectFilter(e.target.value)}
+            onChange={(e) => {
+              setProjectFilter(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="">{t('quality.allProjects')}</option>
             {(projects ?? []).map((p) => (
@@ -66,7 +78,7 @@ export function QualityDashboardPage() {
             ))}
           </div>
 
-          {(data?.milestones ?? []).length === 0 ? (
+          {milestones.length === 0 ? (
             <div className="gov-card p-10 text-center">
               <p className="font-semibold text-ink">{t('quality.emptyTitle')}</p>
               <p className="mt-2 text-sm text-ink-2">{t('quality.emptyBody')}</p>
@@ -86,7 +98,7 @@ export function QualityDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-hair">
-                    {(data?.milestones ?? []).map((m) => (
+                    {visible.map((m) => (
                       <tr key={m.id}>
                         <td className="px-6 py-4">
                           <HealthPill health={m.health}>{t(`quality.health.${m.health}`)}</HealthPill>
@@ -119,6 +131,14 @@ export function QualityDashboardPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="px-6 py-4">
+                <Pagination
+                  total={milestones.length}
+                  page={win.page}
+                  pageSize={PAGE_SIZE}
+                  onPage={setPage}
+                />
               </div>
             </div>
           )}

@@ -71,6 +71,17 @@ export function VendorsPage() {
     }
   }
 
+  // Frontend-only for now: the composer gives the officer a real interaction
+  // and confirmation. Persisting the note / notifying the vendor needs a BFF
+  // endpoint + notification event, which does not exist yet.
+  function onRequestInfo(_note: string) {
+    if (!detail) return;
+    setMessage({
+      tone: 'good',
+      text: t('govVendors.requestInfoOk', { name: detail.legalName }),
+    });
+  }
+
   async function onRegisterSubmit(data: RegisterVendorFormData) {
     setMessage(null);
     try {
@@ -119,6 +130,7 @@ export function VendorsPage() {
       docReviewPending={docReview.isPending}
       onApprove={() => void onReview('approve')}
       onReject={() => void onReview('reject')}
+      onRequestInfo={onRequestInfo}
       onDocApprove={(docType) => void onDocReview(docType, 'approve')}
       rejectDoc={rejectDoc}
       rejectReason={rejectReason}

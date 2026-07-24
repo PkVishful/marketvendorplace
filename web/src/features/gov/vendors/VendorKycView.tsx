@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,6 +15,8 @@ import {
   X,
 } from 'lucide-react';
 import { StatusPill } from '@/components/StatusPill';
+import { Pagination } from '@/components/Pagination';
+import { pageWindow } from '@/lib/pagination';
 import { KycDocumentPreview } from '@/features/kyc/KycDocumentPreview';
 import type { GovVendorDetail, GovVendorSummary } from '@/types/domain';
 import { formatDate } from '@/lib/time';
@@ -27,6 +29,7 @@ import {
   registryStats,
   uiStatus,
   vendorCode,
+  vendorDistricts,
   vendorInitials,
   vendorTypeLabel,
   verifiedDocCount,
@@ -77,6 +80,7 @@ function VendorKycDetailPanel({
   onClose,
   onApprove,
   onReject,
+  onRequestInfo,
   onDocApprove,
   reviewPending,
   docReviewPending,
@@ -91,6 +95,7 @@ function VendorKycDetailPanel({
   onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
+  onRequestInfo: (note: string) => void;
   onDocApprove: (docType: string) => void;
   reviewPending: boolean;
   docReviewPending: boolean;
@@ -102,6 +107,8 @@ function VendorKycDetailPanel({
   onRejectDocCancel: () => void;
 }) {
   const { t } = useTranslation();
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [infoNote, setInfoNote] = useState('');
   const score = kycScore(detail);
   const verified = verifiedDocCount(detail);
   const categories = categoryLabels(detail, detail.capabilities);
@@ -255,20 +262,67 @@ function VendorKycDetailPanel({
       </div>
 
       {canReview && (
-        <div className="flex flex-wrap gap-2 border-t border-line px-5 py-4">
-          <button type="button" className="gov-btn-primary text-sm" disabled={reviewPending} onClick={onApprove}>
-            {t('govVendors.approveKyc')}
-          </button>
-          <button type="button" className="gov-btn-secondary text-sm" disabled={reviewPending} onClick={onReject}>
-            {t('govVendors.reject')}
-          </button>
-          <button type="button" className="gov-btn-secondary text-sm">
-            {t('govVendors.requestInfo')}
-          </button>
-          <button type="button" className="gov-btn-secondary text-sm">
-            <Download className="mr-1.5 inline h-4 w-4" />
-            {t('govVendors.downloadReport')}
-          </button>
+        <div className="border-t border-line px-5 py-4">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="gov-btn-primary text-sm" disabled={reviewPending} onClick={onApprove}>
+              {t('govVendors.approveKyc')}
+            </button>
+            <button type="button" className="gov-btn-secondary text-sm" disabled={reviewPending} onClick={onReject}>
+              {t('govVendors.reject')}
+            </button>
+            <button
+              type="button"
+              className={`gov-btn-secondary text-sm ${infoOpen ? 'border-brand text-brand' : ''}`}
+              aria-expanded={infoOpen}
+              onClick={() => setInfoOpen((open) => !open)}
+            >
+              {t('govVendors.requestInfo')}
+            </button>
+            <button type="button" className="gov-btn-secondary text-sm">
+              <Download className="mr-1.5 inline h-4 w-4" />
+              {t('govVendors.downloadReport')}
+            </button>
+          </div>
+
+          {infoOpen && (
+            <div className="mt-3 space-y-2 rounded-xl border border-line bg-surface-2/40 p-3">
+              <label className="block text-sm font-semibold text-ink" htmlFor="vendor-request-info">
+                {t('govVendors.requestInfoTitle')}
+              </label>
+              <textarea
+                id="vendor-request-info"
+                className="gov-input text-sm"
+                rows={3}
+                placeholder={t('govVendors.requestInfoPlaceholder')}
+                value={infoNote}
+                onChange={(e) => setInfoNote(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="gov-btn-primary text-xs"
+                  disabled={!infoNote.trim()}
+                  onClick={() => {
+                    onRequestInfo(infoNote.trim());
+                    setInfoOpen(false);
+                    setInfoNote('');
+                  }}
+                >
+                  {t('govVendors.sendRequest')}
+                </button>
+                <button
+                  type="button"
+                  className="text-xs text-slate"
+                  onClick={() => {
+                    setInfoOpen(false);
+                    setInfoNote('');
+                  }}
+                >
+                  {t('govVendors.cancel')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
       {!canReview && (
@@ -292,6 +346,7 @@ export function VendorKycView({
   docReviewPending,
   onApprove,
   onReject,
+  onRequestInfo,
   onDocApprove,
   rejectDoc,
   rejectReason,
@@ -316,6 +371,7 @@ export function VendorKycView({
   docReviewPending: boolean;
   onApprove: () => void;
   onReject: () => void;
+  onRequestInfo: (note: string) => void;
   onDocApprove: (docType: string) => void;
   rejectDoc: string | null;
   rejectReason: string;
@@ -331,7 +387,21 @@ export function VendorKycView({
 }) {
   const { t } = useTranslation();
   const stats = useMemo(() => registryStats(vendors), [vendors]);
-  const filtered = useMemo(() => filterVendors(vendors, filter), [vendors, filter]);
+  const districts = useMemo(() => vendorDistricts(vendors), [vendors]);
+
+  // District filter and paging are local view state over the vendors already
+  // loaded — they narrow and slice the list without another fetch.
+  const [districtFilter, setDistrictFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+
+  const filtered = useMemo(() => {
+    const byStatus = filterVendors(vendors, filter);
+    return districtFilter ? byStatus.filter((v) => v.districtName === districtFilter) : byStatus;
+  }, [vendors, filter, districtFilter]);
+
+  const win = pageWindow({ total: filtered.length, page, pageSize: PAGE_SIZE });
+  const visible = filtered.slice((win.page - 1) * PAGE_SIZE, win.page * PAGE_SIZE);
 
   const tabs: { id: VendorKycFilter; label: string; count: number }[] = [
     { id: 'all', label: t('govVendors.filterAll'), count: stats.total },
@@ -421,21 +491,44 @@ export function VendorKycView({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 border-b border-line px-5 py-3">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onFilterChange(tab.id)}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                filter === tab.id
-                  ? 'bg-brand text-white'
-                  : 'bg-surface-2 text-slate hover:bg-surface-3'
-              }`}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
+          <div className="flex flex-wrap gap-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  onFilterChange(tab.id);
+                  setPage(1);
+                }}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  filter === tab.id
+                    ? 'bg-brand text-white'
+                    : 'bg-surface-2 text-slate hover:bg-surface-3'
+                }`}
+              >
+                {tab.label} · {tab.count}
+              </button>
+            ))}
+          </div>
+          <label className="flex items-center gap-2 text-xs text-slate">
+            <span className="whitespace-nowrap font-semibold">{t('govVendors.filterDistrict')}</span>
+            <select
+              className="gov-input py-1.5 text-xs"
+              value={districtFilter}
+              onChange={(e) => {
+                setDistrictFilter(e.target.value);
+                setPage(1);
+              }}
             >
-              {tab.label} · {tab.count}
-            </button>
-          ))}
+              <option value="">{t('govVendors.allDistricts')}</option>
+              {districts.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <div className="overflow-x-auto">
@@ -452,7 +545,7 @@ export function VendorKycView({
               </tr>
             </thead>
             <tbody>
-              {filtered.map((v) => {
+              {visible.map((v) => {
                 const displayStatus = uiStatus(v);
                 const cats = categoryLabels(v);
                 const selected = selectedId === v.id;
@@ -518,6 +611,15 @@ export function VendorKycView({
           </table>
         </div>
 
+        <div className="px-5 py-3">
+          <Pagination
+            total={filtered.length}
+            page={win.page}
+            pageSize={PAGE_SIZE}
+            onPage={setPage}
+          />
+        </div>
+
         <div className="flex flex-wrap justify-center gap-4 border-t border-line px-5 py-3 text-[11px] text-slate">
           <span>{t('govVendors.legendAwaiting')}</span>
           <span>{t('govVendors.legendPending')}</span>
@@ -534,10 +636,12 @@ export function VendorKycView({
           />
         ) : selectedId && detail ? (
           <VendorKycDetailPanel
+            key={detail.id}
             detail={detail}
             onClose={() => onSelect(null)}
             onApprove={onApprove}
             onReject={onReject}
+            onRequestInfo={onRequestInfo}
             onDocApprove={onDocApprove}
             reviewPending={reviewPending}
             docReviewPending={docReviewPending}

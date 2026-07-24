@@ -78,6 +78,16 @@ export function filterVendors(vendors: GovVendorSummary[], filter: VendorKycFilt
   return vendors.filter((v) => uiStatus(v) === filter);
 }
 
+// Distinct districts present in the registry, for the district filter dropdown.
+// DRAFT vendors are excluded to match what the list actually shows.
+export function vendorDistricts(vendors: GovVendorSummary[]): string[] {
+  const names = new Set<string>();
+  for (const v of vendors) {
+    if (v.status !== 'DRAFT' && v.districtName) names.add(v.districtName);
+  }
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
 export function registryStats(vendors: GovVendorSummary[]) {
   const visible = vendors.filter((v) => v.status !== 'DRAFT');
   return {

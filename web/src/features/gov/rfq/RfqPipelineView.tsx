@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,6 +12,8 @@ import {
 import { OrderStatusPill } from '@/features/orders/OrderStatusPill';
 import type { GovOrderSummary } from '@/types/domain';
 import { formatDate, formatDeadline } from '@/lib/time';
+import { Pagination } from '@/components/Pagination';
+import { pageWindow } from '@/lib/pagination';
 import { rfqCodeFromSummary } from './rfqDetailModel';
 
 function formatStage(code: string): string {
@@ -64,6 +66,15 @@ export function RfqPipelineView({
 }) {
   const { t } = useTranslation();
 
+  // The list can run to a hundred-plus rows; page it so the table fits a
+  // screen instead of an endless scroll. Paging is client-side over the orders
+  // already loaded, and the window clamps so a shrinking filter can't strand
+  // the caller on a page that no longer exists.
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const win = pageWindow({ total: orders.length, page, pageSize: PAGE_SIZE });
+  const visible = orders.slice((win.page - 1) * PAGE_SIZE, win.page * PAGE_SIZE);
+
   const stats = {
     total: orders.length,
     active: orders.filter((o) => o.status === 'FLOATED' || o.status === 'REVEALING').length,
@@ -97,7 +108,10 @@ export function RfqPipelineView({
             <select
               className="gov-input mt-1.5 w-full"
               value={projectFilter}
-              onChange={(e) => onProjectFilterChange(e.target.value)}
+              onChange={(e) => {
+                onProjectFilterChange(e.target.value);
+                setPage(1);
+              }}
             >
               <option value="">{t('govOrders.allProjects')}</option>
               {projects.map((p) => (
@@ -178,7 +192,7 @@ export function RfqPipelineView({
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o) => {
+                {visible.map((o) => {
                   const code = rfqCodeFromSummary(o);
                   const canFloat = o.status === 'DRAFT' && o.itemCount > 0;
                   const canOpen = o.status !== 'DRAFT';
@@ -247,6 +261,14 @@ export function RfqPipelineView({
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="px-5 pb-4 sm:px-6">
+            <Pagination
+              total={orders.length}
+              page={win.page}
+              pageSize={PAGE_SIZE}
+              onPage={setPage}
+            />
           </div>
         </div>
       )}
