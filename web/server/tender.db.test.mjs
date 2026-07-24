@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, afterAll } from 'vitest';
 import pg from 'pg';
-import { publicTenderBoard } from './tender-queries.mjs';
+import { publicTenderBoard, publicTenderDetail } from './tender-queries.mjs';
 process.env.EWORKS_USE_LOCAL_PG = '1';
 process.env.PGHOST = process.env.PGHOST || '127.0.0.1';
 process.env.PGPORT = process.env.PGPORT || '5433';
@@ -99,6 +99,64 @@ describe.skipIf(!dbAvailable)('tender rules', () => {
       await expect(client.query(`select eworks.record_sanction($1, 1000, 'X')`, [contract.id]))
         .rejects.toThrow(/authorized/i);
     });
+  }, 15000);
+});
+
+describe.skipIf(!dbAvailable)('tender end-to-end flow', () => {
+  afterAll(async () => {
+    // The flow floats the contract (publish does this by design) and leaves
+    // its own notice/sanction/criteria behind. Reset the fixture so re-runs
+    // keep exercising the full path instead of silently skipping on the
+    // next invocation (same reasoning as the 'tender rules' afterAll above).
+    await pool.query(`delete from eworks.tender_corrigenda where notice_id in (select id from eworks.tender_notices where contract_id=$1)`, [contract.id]);
+    await pool.query(`delete from eworks.tender_eligibility_criteria where notice_id in (select id from eworks.tender_notices where contract_id=$1)`, [contract.id]);
+    await pool.query(`delete from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    await pool.query(`delete from eworks.sanctions where contract_id=$1`, [contract.id]);
+    await pool.query(`update eworks.contracts set status='DRAFT' where id=$1`, [contract.id]);
+  });
+
+  it('sanction -> notice + criteria -> publish surfaces on the public board/detail and is audited', async () => {
+    // Clean any prior notice/sanction for this contract (via the raw pool,
+    // same reasoning as the 'tender rules' block: eworks_authenticated no
+    // longer holds DELETE on these tables).
+    await pool.query(`delete from eworks.tender_eligibility_criteria where notice_id in (select id from eworks.tender_notices where contract_id=$1)`, [contract.id]);
+    await pool.query(`delete from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    await pool.query(`delete from eworks.sanctions where contract_id=$1`, [contract.id]);
+
+    const before = await pool.query(
+      `select count(*)::int as c from eworks.audit_logs where action in ('tender.sanction','tender.publish')`);
+
+    let noticeId;
+    await withUserSession(officer.userId, async (client) => {
+      const n = await client.query(
+        `insert into eworks.tender_notices (contract_id, notice_no, scope_summary, estimated_value_paise, completion_period_days, emd_amount_paise, created_by)
+         values ($1,'NIT-FLOW','flow scope',250000000,120,750000, eworks.current_user_id()) returning id`, [contract.id]);
+      noticeId = n.rows[0].id;
+      const criteria = [
+        { label: 'Annual turnover >= sanctioned amount', kind: 'financial' },
+        { label: 'Similar civil work experience', kind: 'experience' },
+        { label: 'Valid PWD licence class I', kind: 'general' },
+      ];
+      for (let seq = 0; seq < criteria.length; seq += 1) {
+        await client.query(
+          `insert into eworks.tender_eligibility_criteria (notice_id, seq, label, description, kind) values ($1,$2,$3,'',$4)`,
+          [noticeId, seq, criteria[seq].label, criteria[seq].kind]);
+      }
+      await client.query(`select eworks.record_sanction($1, 260000000, 'GO-FLOW')`, [contract.id]);
+      await client.query(`select eworks.publish_tender_notice($1)`, [noticeId]);
+    });
+
+    const board = await publicTenderBoard(pool);
+    expect(board.some((r) => r.noticeId === noticeId)).toBe(true);
+
+    const detail = await publicTenderDetail(pool, noticeId);
+    expect(detail).not.toBeNull();
+    expect(detail.id).toBe(noticeId);
+    expect(detail.criteria.length).toBe(3);
+
+    const after = await pool.query(
+      `select count(*)::int as c from eworks.audit_logs where action in ('tender.sanction','tender.publish')`);
+    expect(after.rows[0].c).toBeGreaterThan(before.rows[0].c);
   }, 15000);
 });
 

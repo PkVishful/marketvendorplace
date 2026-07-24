@@ -145,6 +145,23 @@ export async function seedContracts(client) {
   summary.push({ district: 'COIMBATORE', contract: 'COIMBATORE-CTR-OPEN', boqItems: 2,
     deliveries: 0, approved: 0, pendingApproval: 0 });
 
+  // A deterministic DRAFT contract (works-tender Phase 1). Anchored at the
+  // Coimbatore PROJECT unit, which a contract.manage officer (DISTRICT_OFFICER
+  // @ Coimbatore) covers -- the tender DB tests probe for exactly this shape
+  // (a DRAFT contract + its in-scope contract.manage officer) and drive the
+  // sanction/publish flow against it. `on conflict (code) do nothing` keeps
+  // this idempotent: once created, re-seeding never touches it, so a test
+  // run that floats it (and later resets it back to DRAFT) doesn't get its
+  // fixture clobbered by the next seed pass.
+  const draftContractId = mk('c0b2', 1);
+  await client.query(
+    `insert into eworks.contracts (id, project_id, code, title, value_paise, status, created_by)
+     values ($1, $2, 'WT-DRAFT-1', 'Coimbatore Works-Tender Draft Contract', 300000000000, 'DRAFT', $3)
+     on conflict (code) do nothing`,
+    [draftContractId, D.COIMBATORE.project, D.COIMBATORE.officer]);
+  summary.push({ district: 'COIMBATORE', contract: 'WT-DRAFT-1', boqItems: 0,
+    deliveries: 0, approved: 0, pendingApproval: 0 });
+
   // A fresh applicant: CONTRACTOR role at Coimbatore, no contractor row yet, so
   // the registration wizard is demoable end to end.
   const APPLICANT = 'c0a00000-0000-0000-0000-000000000003';
