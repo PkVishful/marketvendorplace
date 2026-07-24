@@ -24,7 +24,7 @@ import { computeMilestoneHealth } from './region-health.mjs';
 import {
   loadChildRegions, loadCollapseChain, loadAncestors, loadProjects, loadSubtreeSummary,
 } from './area-queries.mjs';
-import { financeSummary, financeDistricts } from './oversight-queries.mjs';
+import { financeSummary, financeDistricts, financeOrders, financeOrderDetail } from './oversight-queries.mjs';
 import { pickEffectiveNode, buildBreadcrumbs } from './area.mjs';
 import { selectProvider } from './otp/provider.mjs';
 import { shapeChecklist, deriveReqStatus } from './catalog.mjs';
@@ -2105,6 +2105,31 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     try {
       const rows = await withUserSession(userId, (client) => financeDistricts(client));
       res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
+  app.get('/api/gov/oversight/finance/orders', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    try {
+      const payload = await withUserSession(userId, (c) => financeOrders(c, { limit, offset }));
+      res.json(payload);
+    } catch (err) {
+      res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
+  app.get('/api/gov/oversight/finance/orders/:id', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    try {
+      const payload = await withUserSession(userId, (c) => financeOrderDetail(c, req.params.id));
+      if (!payload) return res.status(404).json({ error: 'not_found' });
+      res.json(payload);
     } catch (err) {
       res.status(500).json({ error: 'query_failed', detail: err.message });
     }

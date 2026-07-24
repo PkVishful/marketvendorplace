@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import pg from 'pg';
-import { financeSummary, financeDistricts } from './oversight-queries.mjs';
+import { financeSummary, financeDistricts, financeOrders, financeOrderDetail } from './oversight-queries.mjs';
 
 // EWORKS_USE_LOCAL_PG must be hardcoded (not `|| '1'`) and set BEFORE db.mjs is
 // imported: ES-module imports are hoisted and execute before this file's own
@@ -77,6 +77,40 @@ maybe('finance summary + districts', () => {
     for (const r of rows) {
       expect(typeof r.district).toBe('string');
       expect(typeof r.awardedValuePaise).toBe('number');
+    }
+  });
+});
+
+maybe('order ledger + sealed-bid confidentiality', () => {
+  it('a FLOATED order returns sealed:true, a bid count, and ZERO amounts', async () => {
+    const floated = (await probe.query(
+      `select id from eworks.test_orders where status='FLOATED' limit 1`)).rows[0];
+    const d = await withUserSession(headAdmin.userId, (c) => financeOrderDetail(c, floated.id));
+    expect(d.sealed).toBe(true);
+    expect(d.bids).toEqual([]);            // never any amounts
+    expect(d.award).toBeNull();
+    expect(typeof d.bidCount).toBe('number');
+  });
+  it('an AWARDED order reveals bid amounts with vendor names', async () => {
+    const awarded = (await probe.query(
+      `select id from eworks.test_orders where status='AWARDED' limit 1`)).rows[0];
+    const d = await withUserSession(headAdmin.userId, (c) => financeOrderDetail(c, awarded.id));
+    expect(d.sealed).toBe(false);
+    expect(d.award).not.toBeNull();
+    expect(typeof d.award.pricePaise).toBe('number');
+    for (const b of d.bids) {
+      expect(typeof b.vendorName).toBe('string');
+      expect(typeof b.pricePaise).toBe('number');
+    }
+  });
+  it('ledger paginates and hides amounts for sealed rows', async () => {
+    const { rows, total } = await withUserSession(headAdmin.userId, (c) => financeOrders(c, { limit: 10, offset: 0 }));
+    expect(total).toBeGreaterThan(0);
+    expect(rows.length).toBeLessThanOrEqual(10);
+    for (const r of rows) {
+      if (!['REVEALING','AWARDED','FAILED','CANCELLED'].includes(r.status)) {
+        expect(r.awardPaise).toBeNull();
+      }
     }
   });
 });

@@ -2,7 +2,7 @@
 // a `client` already inside withUserSession(), so RLS scopes the rows — no manual
 // org filtering. bigints are returned as JS numbers (paise fit in a double for
 // this app's magnitudes).
-import { computeSavings } from './oversight-finance.mjs';
+import { computeSavings, isBiddingClosed } from './oversight-finance.mjs';
 
 const n = (v) => (v == null ? 0 : Number(v));
 
@@ -80,4 +80,99 @@ export async function financeDistricts(client) {
     paymentsReleasedPaise: n(r.paymentsReleasedPaise),
     failedValuePaise: n(r.failedValuePaise),
   }));
+}
+
+export async function financeOrders(client, { limit = 20, offset = 0 } = {}) {
+  const totalQ = await client.query(`select count(*)::int as total from eworks.test_orders`);
+  const q = await client.query(`
+    select
+      o.id, o.milestone, o.status,
+      ou.name                          as "orgName",
+      o.estimated_amount_paise         as "estimatePaise",
+      (select count(*)::int from eworks.order_bids b where b.order_id = o.id) as "bidCount",
+      oa.price_paise                   as "awardPaise",
+      av.legal_name                    as "awardedVendor",
+      (select pay.status from eworks.payments pay where pay.order_id = o.id order by pay.created_at desc limit 1) as "paymentStatus"
+    from eworks.test_orders o
+    join eworks.org_units ou on ou.id = o.org_unit_id
+    left join eworks.order_award oa on oa.order_id = o.id
+    left join eworks.vendors av on av.id = oa.vendor_id
+    order by o.created_at desc
+    limit $1 offset $2
+  `, [limit, offset]);
+  const rows = q.rows.map((r) => {
+    const closed = isBiddingClosed(r.status);
+    return {
+      id: r.id,
+      milestone: r.milestone,
+      orgName: r.orgName,
+      status: r.status,
+      estimatePaise: r.estimatePaise == null ? null : Number(r.estimatePaise),
+      bidCount: Number(r.bidCount),
+      // Award only ever exists post-close, but gate defensively anyway.
+      awardPaise: closed && r.awardPaise != null ? Number(r.awardPaise) : null,
+      awardedVendor: closed ? r.awardedVendor : null,
+      paymentStatus: r.paymentStatus ?? null,
+    };
+  });
+  return { rows, total: totalQ.rows[0].total };
+}
+
+export async function financeOrderDetail(client, orderId) {
+  const oQ = await client.query(`
+    select o.id, o.milestone, o.status, o.estimated_amount_paise as "estimatePaise"
+      from eworks.test_orders o where o.id = $1
+  `, [orderId]);
+  if (oQ.rowCount === 0) return null;
+  const o = oQ.rows[0];
+  const sealed = !isBiddingClosed(o.status);
+
+  const bidCount = Number((await client.query(
+    `select count(*)::int as c from eworks.order_bids where order_id = $1`, [orderId])).rows[0].c);
+
+  // Amounts ONLY when bidding has closed. When sealed we never even SELECT the
+  // revealed column — the contract is "no plaintext exists yet".
+  let bids = [];
+  let award = null;
+  let payment = null;
+  let certificateId = null;
+  if (!sealed) {
+    const bidsQ = await client.query(`
+      select v.legal_name as "vendorName", b.revealed_price_paise as "pricePaise", b.revealed_at as "revealedAt"
+        from eworks.order_bids b
+        join eworks.vendors v on v.id = b.vendor_id
+       where b.order_id = $1 and b.revealed_price_paise is not null
+       order by b.revealed_price_paise asc
+    `, [orderId]);
+    bids = bidsQ.rows.map((r) => ({
+      vendorName: r.vendorName, pricePaise: Number(r.pricePaise), revealedAt: r.revealedAt,
+    }));
+    const awQ = await client.query(`
+      select v.legal_name as "vendorName", oa.price_paise as "pricePaise", oa.awarded_at as "awardedAt",
+             oa.qualified_bid_count as "qualifiedBidCount"
+        from eworks.order_award oa join eworks.vendors v on v.id = oa.vendor_id
+       where oa.order_id = $1
+    `, [orderId]);
+    if (awQ.rowCount) {
+      const a = awQ.rows[0];
+      award = { vendorName: a.vendorName, pricePaise: Number(a.pricePaise), awardedAt: a.awardedAt, qualifiedBidCount: Number(a.qualifiedBidCount) };
+    }
+    const payQ = await client.query(`
+      select status, amount_paise as "amountPaise", released_at as "releasedAt", created_at as "createdAt"
+        from eworks.payments where order_id = $1 order by created_at desc limit 1
+    `, [orderId]);
+    if (payQ.rowCount) {
+      const p = payQ.rows[0];
+      payment = { status: p.status, amountPaise: Number(p.amountPaise), releasedAt: p.releasedAt, heldSince: p.createdAt };
+    }
+    certificateId = (await client.query(
+      `select c.id from eworks.certificates c
+         join eworks.test_jobs j on j.id = c.job_id
+        where j.order_id = $1 limit 1`, [orderId])).rows[0]?.id ?? null;
+  }
+  return {
+    id: o.id, milestone: o.milestone, status: o.status,
+    estimatePaise: o.estimatePaise == null ? null : Number(o.estimatePaise),
+    sealed, bidCount, bids, award, payment, certificateId,
+  };
 }
