@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pagination } from '@/components/Pagination';
 import { OrderStatusPill } from '@/features/orders/OrderStatusPill';
@@ -14,9 +14,9 @@ export function OrderLedger({
 }: { districtFilter: string; selectedOrder: string | null; onSelectOrder: (id: string) => void }) {
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
-  const { data } = useFinanceOrders(PAGE_SIZE, (page - 1) * PAGE_SIZE);
-  const all = data?.rows ?? [];
-  const rows = districtFilter ? all.filter((r) => r.orgName.includes(districtFilter)) : all;
+  useEffect(() => setPage(1), [districtFilter]);
+  const { data } = useFinanceOrders(PAGE_SIZE, (page - 1) * PAGE_SIZE, districtFilter || undefined);
+  const rows = data?.rows ?? [];
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)] lg:items-start">

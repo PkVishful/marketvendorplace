@@ -111,6 +111,7 @@ maybe('order ledger + sealed-bid confidentiality', () => {
     expect(d.sealed).toBe(false);
     expect(d.award).not.toBeNull();
     expect(typeof d.award.pricePaise).toBe('number');
+    expect(d.bids.length).toBeGreaterThan(0);
     for (const b of d.bids) {
       expect(typeof b.vendorName).toBe('string');
       expect(typeof b.pricePaise).toBe('number');

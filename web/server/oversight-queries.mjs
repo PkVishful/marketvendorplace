@@ -82,8 +82,15 @@ export async function financeDistricts(client) {
   }));
 }
 
-export async function financeOrders(client, { limit = 20, offset = 0 } = {}) {
-  const totalQ = await client.query(`select count(*)::int as total from eworks.test_orders`);
+export async function financeOrders(client, { limit = 20, offset = 0, district = null } = {}) {
+  const totalQ = await client.query(`
+    select count(*)::int as total
+      from eworks.test_orders o
+      join eworks.org_units ou on ou.id = o.org_unit_id
+     where ($1::text is null or exists (
+             select 1 from eworks.org_units d
+              where d.level='DISTRICT' and d.path @> ou.path and d.name = $1))
+  `, [district]);
   const q = await client.query(`
     select
       o.id, o.milestone, o.status,
@@ -97,9 +104,12 @@ export async function financeOrders(client, { limit = 20, offset = 0 } = {}) {
     join eworks.org_units ou on ou.id = o.org_unit_id
     left join eworks.order_award oa on oa.order_id = o.id
     left join eworks.vendors av on av.id = oa.vendor_id
+    where ($3::text is null or exists (
+            select 1 from eworks.org_units d
+             where d.level='DISTRICT' and d.path @> ou.path and d.name = $3))
     order by o.created_at desc
     limit $1 offset $2
-  `, [limit, offset]);
+  `, [limit, offset, district]);
   const rows = q.rows.map((r) => {
     const closed = isBiddingClosed(r.status);
     return {
@@ -239,6 +249,8 @@ export async function oversightFlags(client) {
   for (const r of integrity.rows) {
     flags.push({ kind: 'payment_without_certificate', severity: 'integrity', orderId: r.orderId, label: r.milestone });
   }
+
+  flags.sort((a, b) => (a.severity === 'integrity' ? 0 : 1) - (b.severity === 'integrity' ? 0 : 1));
 
   return flags;
 }

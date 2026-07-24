@@ -8,8 +8,11 @@ export const useFinanceSummary = () =>
   useQuery({ queryKey: oversightKeys.summary, queryFn: fetchFinanceSummary });
 export const useFinanceDistricts = () =>
   useQuery({ queryKey: oversightKeys.districts, queryFn: fetchFinanceDistricts });
-export const useFinanceOrders = (limit: number, offset: number) =>
-  useQuery({ queryKey: oversightKeys.orders(limit, offset), queryFn: () => fetchFinanceOrders(limit, offset) });
+export const useFinanceOrders = (limit: number, offset: number, district?: string) =>
+  useQuery({
+    queryKey: oversightKeys.orders(limit, offset, district),
+    queryFn: () => fetchFinanceOrders(limit, offset, district),
+  });
 export const useFinanceOrder = (id: string | null) =>
   useQuery({ queryKey: oversightKeys.order(id ?? ''), queryFn: () => fetchFinanceOrder(id as string), enabled: Boolean(id) });
 export const useFinanceVendors = () =>

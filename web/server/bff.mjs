@@ -2132,8 +2132,9 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     if (!userId) return;
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const district = req.query.district ? String(req.query.district) : null;
     try {
-      const payload = await withUserSession(userId, (c) => financeOrders(c, { limit, offset }));
+      const payload = await withUserSession(userId, (c) => financeOrders(c, { limit, offset, district }));
       res.json(payload);
     } catch (err) {
       res.status(500).json({ error: 'query_failed', detail: err.message });

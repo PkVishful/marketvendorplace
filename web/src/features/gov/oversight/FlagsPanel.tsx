@@ -18,7 +18,7 @@ export function FlagsPanel({ onSelectOrder }: { onSelectOrder: (id: string) => v
       {flags.length === 0 ? (
         <p className="mt-2 text-sm text-slate">{t('oversight.flagsEmpty')}</p>
       ) : (
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-3 max-h-96 space-y-2 overflow-y-auto">
           {flags.map((f: OversightFlag, i) => (
             <li key={`${f.kind}-${f.orderId}-${i}`}>
               <button
