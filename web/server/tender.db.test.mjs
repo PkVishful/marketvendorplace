@@ -303,6 +303,95 @@ describe.skipIf(!dbAvailable)('POST /api/gov/tenders/:contractId/notice — 409 
   }, 15000);
 });
 
+describe.skipIf(!dbAvailable)('POST /api/gov/tenders/:contractId/notice/corrigendum — multi-date shift over HTTP (Fix 1)', () => {
+  let server, base, cookieFor;
+
+  beforeAll(async () => {
+    const { createApp } = await import('./bff.mjs');
+    const { loadConfig } = await import('./env.mjs');
+    const { setSessionCookie } = await import('./security.mjs');
+    const config = loadConfig({ ...process.env, EWORKS_ENV: undefined });
+    cookieFor = (userId) => {
+      const res = { headers: {}, setHeader(k, v) { this.headers[k] = v; } };
+      setSessionCookie(res, userId, config);
+      return res.headers['Set-Cookie'].split(';')[0];
+    };
+    const provider = { async send() { return { delivered: true }; } };
+    const app = createApp(config, { provider });
+    await new Promise((resolve) => { server = app.listen(0, resolve); });
+    base = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  afterAll(async () => {
+    if (server) await new Promise((resolve) => server.close(resolve));
+    // Publishing (required to reach a corrigendum-eligible notice) floats the
+    // contract, same as every other describe in this file — reset the shared
+    // WT-DRAFT-1 fixture back to DRAFT with no corrigenda/notice/sanction.
+    await pool.query(`delete from eworks.tender_corrigenda where notice_id in (select id from eworks.tender_notices where contract_id=$1)`, [contract.id]);
+    await pool.query(`delete from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    await pool.query(`delete from eworks.sanctions where contract_id=$1`, [contract.id]);
+    await pool.query(`update eworks.contracts set status='DRAFT' where id=$1`, [contract.id]);
+  });
+
+  async function api(userId, method, path, body) {
+    const res = await fetch(`${base}${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json', cookie: cookieFor(userId) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    return { status: res.status, body: await res.json() };
+  }
+
+  it('shifting submission/technical/financial dates all forward in one corrigendum returns 200, not a per-column ordering failure', async () => {
+    await pool.query(`delete from eworks.tender_corrigenda where notice_id in (select id from eworks.tender_notices where contract_id=$1)`, [contract.id]);
+    await pool.query(`delete from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    await pool.query(`delete from eworks.sanctions where contract_id=$1`, [contract.id]);
+
+    const createRes = await api(officer.userId, 'POST', `/api/gov/tenders/${contract.id}/notice`, {
+      noticeNo: 'NIT-CORRIG-HTTP', scopeSummary: 'scope', estimatedValuePaise: 100000,
+      completionPeriodDays: 90, emdAmountPaise: 5000,
+      submissionCloseAt: '2026-03-01T00:00:00Z', technicalOpeningAt: '2026-03-10T00:00:00Z',
+      financialOpeningAt: '2026-03-15T00:00:00Z',
+    });
+    expect(createRes.status).toBe(200);
+
+    const sanctionRes = await api(officer.userId, 'POST', `/api/gov/tenders/${contract.id}/sanction`, {
+      amountPaise: 120000, orderNo: 'GO-CORRIG-HTTP',
+    });
+    expect(sanctionRes.status).toBe(200);
+
+    const publishRes = await api(officer.userId, 'POST', `/api/gov/tenders/${contract.id}/notice/publish`, undefined);
+    expect(publishRes.status).toBe(200);
+
+    // All three dates shift forward by the same large offset. A naive
+    // per-column update sequence (submission_close_at first) would push it
+    // past the still-old technical_opening_at and abort on
+    // tender_notice_dates_ordered — this is exactly what the Fix 1
+    // consolidated single UPDATE prevents.
+    const corrigendumRes = await api(officer.userId, 'POST', `/api/gov/tenders/${contract.id}/notice/corrigendum`, {
+      summary: 'extend all dates by two months',
+      changes: {
+        submissionCloseAt: '2026-05-01T00:00:00Z',
+        technicalOpeningAt: '2026-05-10T00:00:00Z',
+        financialOpeningAt: '2026-05-15T00:00:00Z',
+      },
+    });
+    expect(corrigendumRes.status).toBe(200);
+    expect(corrigendumRes.body.notice.submissionCloseAt).toBe('2026-05-01T00:00:00.000Z');
+    expect(corrigendumRes.body.notice.technicalOpeningAt).toBe('2026-05-10T00:00:00.000Z');
+    expect(corrigendumRes.body.notice.financialOpeningAt).toBe('2026-05-15T00:00:00.000Z');
+    expect(corrigendumRes.body.corrigenda.some((cg) => cg.corrigendumNo === 1)).toBe(true);
+
+    const row = await pool.query(
+      `select submission_close_at as "submissionCloseAt", technical_opening_at as "technicalOpeningAt",
+              financial_opening_at as "financialOpeningAt"
+         from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    expect(row.rows[0].submissionCloseAt.toISOString()).toBe('2026-05-01T00:00:00.000Z');
+    expect(row.rows[0].technicalOpeningAt.toISOString()).toBe('2026-05-10T00:00:00.000Z');
+    expect(row.rows[0].financialOpeningAt.toISOString()).toBe('2026-05-15T00:00:00.000Z');
+  }, 15000);
+});
+
 // Runs exactly once, regardless of describe declaration order, since it's
 // registered at file scope rather than inside either describe above.
 afterAll(async () => {
