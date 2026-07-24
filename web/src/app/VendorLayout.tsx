@@ -4,7 +4,7 @@ import { useSession, useSignOut } from '@/auth/useSession';
 import { devUserById } from '@/app/devUsers';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { useTheme } from '@/hooks/useTheme';
-import { primaryOrgScope, vendorNavForSession } from '@/lib/navConfig';
+import { vendorNavForSession } from '@/lib/navConfig';
 import {
   useNotifications,
   unreadCount,
@@ -36,17 +36,12 @@ export function VendorLayout() {
     localStorage.setItem('eworks-lang', code);
   }
 
-  const orgScope = session?.authenticated
-    ? `Tamil Nadu › ${session.vendorName ?? primaryOrgScope(session)}`
-    : undefined;
-
   return (
     <DashboardShell
       portal="vendor"
       homePath="/vendor"
       navItems={navItems}
       userName={dev?.label ?? session?.fullName}
-      orgScope={orgScope}
       notificationHref="/vendor/notifications"
       notificationCount={unreadCount(notifications)}
       theme={theme}

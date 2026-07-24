@@ -5,7 +5,7 @@ import { HelpCircle, Search, Settings } from 'lucide-react';
 import { LANGUAGES } from '@/i18n';
 import { TnEmblem } from '@/components/TnEmblem';
 import { UnreadBadge } from '@/features/notifications/UnreadBadge';
-import { NavIcon, Bell, Building2, Menu, Moon, Sun, X } from '@/lib/navIcons';
+import { NavIcon, Bell, Menu, Moon, Sun, X } from '@/lib/navIcons';
 
 export interface DashboardNavItem {
   to: string;
@@ -19,9 +19,6 @@ interface DashboardShellProps {
   navItems: DashboardNavItem[];
   userName?: string;
   roleLabel?: string;
-  orgScope?: string;
-  orgLevel?: string;
-  districtId?: string;
   notificationHref?: string;
   notificationCount?: number;
   theme: 'light' | 'dark';
@@ -117,9 +114,6 @@ export function DashboardShell({
   navItems,
   userName,
   roleLabel,
-  orgScope,
-  orgLevel,
-  districtId,
   notificationHref,
   notificationCount = 0,
   theme,
@@ -136,12 +130,6 @@ export function DashboardShell({
   const isTa = i18n.language === 'ta';
   const settingsPath = `${homePath}/settings`;
   const helpPath = `${homePath}/help`;
-  const initials = (userName ?? '?')
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase();
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -178,24 +166,6 @@ export function DashboardShell({
             </span>
           </Link>
 
-          {/* Scope context, divider-separated like the reference. Both read
-              from the session, so they follow whoever is signed in rather
-              than being decorative labels. */}
-          <div className="hidden items-center gap-4 xl:flex">
-            {orgScope && (
-              <>
-                <span className="h-6 w-px bg-white/20" aria-hidden />
-                <span className="whitespace-nowrap text-sm text-white/85">
-                  {orgLevel ? t(`area.level.${orgLevel}`) : t('shell.districtLabel')} : {orgScope}
-                </span>
-              </>
-            )}
-            <span className="h-6 w-px bg-white/20" aria-hidden />
-            <span className="whitespace-nowrap text-sm text-white/85">
-              {t('shell.departmentLabel')} : {t('shell.departmentName')}
-            </span>
-          </div>
-
           <div className="order-last w-full min-w-0 flex-1 sm:order-none sm:mx-4 sm:max-w-xl lg:mx-8">
             <label className="sr-only" htmlFor="dash-search">
               {t('dashboard.searchPlaceholder')}
@@ -216,11 +186,6 @@ export function DashboardShell({
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <span className="hidden items-center gap-1.5 text-xs text-white/75 lg:inline-flex" title={orgScope}>
-              <Building2 className="h-3.5 w-3.5" strokeWidth={2.5} />
-              {districtId ?? orgScope}
-            </span>
-
             <select
               aria-label={t('dev.language')}
               value={lang}
@@ -263,6 +228,18 @@ export function DashboardShell({
             )}
 
             <NavLink
+              to={settingsPath}
+              aria-label={t('dashboard.settings')}
+              className={({ isActive }) =>
+                `hidden min-h-[40px] min-w-[40px] place-items-center rounded-lg sm:grid ${
+                  isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
+                }`
+              }
+            >
+              <Settings className="h-5 w-5" strokeWidth={2} />
+            </NavLink>
+
+            <NavLink
               to={helpPath}
               aria-label={t('dashboard.helpSupport')}
               className={({ isActive }) =>
@@ -273,13 +250,6 @@ export function DashboardShell({
             >
               <HelpCircle className="h-5 w-5" strokeWidth={2} />
             </NavLink>
-
-            <span
-              className="hidden h-8 w-8 shrink-0 place-items-center rounded-full bg-accent text-xs font-bold text-brand-dark sm:grid"
-              aria-hidden
-            >
-              {initials}
-            </span>
 
             <DashboardUserMenu
               name={userName}

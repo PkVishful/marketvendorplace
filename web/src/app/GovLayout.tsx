@@ -5,7 +5,7 @@ import { devUserById } from '@/app/devUsers';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { RoleDashboard } from '@/features/gov/RoleDashboard';
 import { useTheme } from '@/hooks/useTheme';
-import { govNavForSession, primaryOrgScope } from '@/lib/navConfig';
+import { govNavForSession } from '@/lib/navConfig';
 
 export function GovLayout() {
   const { t, i18n } = useTranslation();
@@ -30,24 +30,12 @@ export function GovLayout() {
     localStorage.setItem('eworks-lang', code);
   }
 
-  const orgScope = session?.authenticated ? primaryOrgScope(session) : undefined;
-  // The label follows the caller's actual level: "District : Coimbatore" is
-  // right for an officer, but a head admin sits at STATE and is not a district.
-  const orgLevel = session?.roles?.[0]?.orgLevel;
-
-  const districtId = session?.roles?.[0]?.orgName
-    ? `#PWD/${session.roles[0].orgName.slice(0, 4).toUpperCase()}`
-    : undefined;
-
   return (
     <DashboardShell
       portal="gov"
       homePath="/gov"
       navItems={navItems}
       userName={dev?.label ?? session?.fullName}
-      orgScope={orgScope}
-      orgLevel={orgLevel}
-      districtId={districtId}
       theme={theme}
       onToggleTheme={toggleTheme}
       lang={i18n.language}

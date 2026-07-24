@@ -4,7 +4,7 @@ import { useSession, useSignOut } from '@/auth/useSession';
 import { devUserById } from '@/app/devUsers';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { useTheme } from '@/hooks/useTheme';
-import { contractorNavForSession, primaryOrgScope } from '@/lib/navConfig';
+import { contractorNavForSession } from '@/lib/navConfig';
 
 export function ContractorLayout() {
   const { t, i18n } = useTranslation();
@@ -29,17 +29,12 @@ export function ContractorLayout() {
     localStorage.setItem('eworks-lang', code);
   }
 
-  const orgScope = session?.authenticated
-    ? `Tamil Nadu › ${session.contractorName ?? primaryOrgScope(session)}`
-    : undefined;
-
   return (
     <DashboardShell
       portal="contractor"
       homePath="/contractor"
       navItems={navItems}
       userName={dev?.label ?? session?.fullName}
-      orgScope={orgScope}
       theme={theme}
       onToggleTheme={toggleTheme}
       lang={i18n.language}
