@@ -693,3 +693,29 @@ export interface ProjectChecklistStage {
 export interface ProjectChecklist {
   stages: ProjectChecklistStage[];
 }
+
+export interface FinanceSummary {
+  floatedCount: number; floatedEstimatePaise: number; bidsReceived: number;
+  awardedValuePaise: number; estimatedPaise: number; awardedPaise: number; savingsPaise: number;
+  paymentsHeldPaise: number; paymentsReleasedPaise: number; failedValuePaise: number; openEscalations: number;
+}
+export interface FinanceDistrictRow {
+  districtId: string; district: string; floatedCount: number; awardedValuePaise: number;
+  savingsPaise: number; paymentsHeldPaise: number; paymentsReleasedPaise: number; failedValuePaise: number;
+}
+export interface FinanceOrderRow {
+  id: string; milestone: string; orgName: string; status: string;
+  estimatePaise: number | null; bidCount: number; awardPaise: number | null;
+  awardedVendor: string | null; paymentStatus: string | null;
+}
+export interface FinanceOrdersPage { rows: FinanceOrderRow[]; total: number; }
+export interface FinanceOrderDetail {
+  id: string; milestone: string; status: string; estimatePaise: number | null;
+  sealed: boolean; bidCount: number;
+  bids: { vendorName: string; pricePaise: number; revealedAt: string | null }[];
+  award: { vendorName: string; pricePaise: number; awardedAt: string; qualifiedBidCount: number } | null;
+  payment: { status: string; amountPaise: number; releasedAt: string | null; heldSince: string } | null;
+  certificateId: string | null;
+}
+export interface VendorEarningRow { vendorId: string; vendorName: string; awardedPaise: number; paidPaise: number; pendingPaise: number; }
+export interface OversightFlag { kind: string; severity: 'warn' | 'integrity'; orderId: string; label: string; }
