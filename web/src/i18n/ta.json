@@ -1354,6 +1354,12 @@
       "closes": "Submission closes",
       "viewDetail": "View notice"
     },
+    "countdown": {
+      "closed": "முடிந்தது",
+      "daysHours": "{{days}} நாள் {{hours}} மணி நேரம் மீதம்",
+      "hoursMinutes": "{{hours}} மணி {{minutes}} நிமிடம் மீதம்",
+      "minutes": "{{minutes}} நிமிடம் மீதம்"
+    },
     "detail": {
       "back": "Back to tenders",
       "notFoundTitle": "Notice not available",

@@ -1354,6 +1354,12 @@
       "closes": "Submission closes",
       "viewDetail": "View notice"
     },
+    "countdown": {
+      "closed": "closed",
+      "daysHours": "{{days}}d {{hours}}h left",
+      "hoursMinutes": "{{hours}}h {{minutes}}m left",
+      "minutes": "{{minutes}}m left"
+    },
     "detail": {
       "back": "Back to tenders",
       "notFoundTitle": "Notice not available",

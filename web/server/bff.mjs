@@ -2781,7 +2781,16 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
            Number(b.emdAmountPaise ?? 0), b.publishAt || null, b.queryDeadlineAt || null, b.submissionCloseAt || null,
            b.technicalOpeningAt || null, b.financialOpeningAt || null]);
         const noticeId = up.rows[0]?.id;
-        if (noticeId && Array.isArray(b.criteria)) {
+        if (!noticeId) {
+          // insert ... on conflict do update ... where status='DRAFT' returns
+          // no row exactly when a notice already exists for this contract but
+          // is no longer DRAFT (a fresh insert always returns its new id). Do
+          // not silently fall through to a 200 with the unchanged view.
+          const err = new Error('notice_not_editable');
+          err.code = 'NOTICE_NOT_EDITABLE';
+          throw err;
+        }
+        if (Array.isArray(b.criteria)) {
           await c.query(`delete from eworks.tender_eligibility_criteria where notice_id=$1`, [noticeId]);
           for (let i = 0; i < b.criteria.length; i += 1) {
             const cr = b.criteria[i];
@@ -2791,7 +2800,10 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
         }
       });
       res.json(await withUserSession(userId, (c) => govTenderView(c, req.params.contractId)));
-    } catch (err) { res.status(400).json({ error: 'notice_failed', detail: err.message }); }
+    } catch (err) {
+      if (err.code === 'NOTICE_NOT_EDITABLE') return res.status(409).json({ error: 'notice_not_editable' });
+      res.status(400).json({ error: 'notice_failed', detail: err.message });
+    }
   });
 
   app.post('/api/gov/tenders/:contractId/notice/publish', async (req, res) => {
@@ -2815,9 +2827,18 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
         const tn = await c.query(`select id from eworks.tender_notices where contract_id=$1`, [req.params.contractId]);
         if (tn.rowCount === 0) throw new Error('no notice');
         // apply amended fields (if provided) then record the corrigendum
+        // All changed columns are applied in a SINGLE UPDATE so the
+        // non-deferrable tender_notice_dates_ordered CHECK constraint only
+        // ever sees the final, consistent state — not an intermediate one
+        // that could violate ordering while dates are shifting together.
         if (changes && typeof changes === 'object') {
           const map = { submissionCloseAt: 'submission_close_at', technicalOpeningAt: 'technical_opening_at', financialOpeningAt: 'financial_opening_at', scopeSummary: 'scope_summary' };
-          for (const [k, col] of Object.entries(map)) if (k in changes) await c.query(`update eworks.tender_notices set ${col}=$2 where id=$1`, [tn.rows[0].id, changes[k]]);
+          const entries = Object.entries(map).filter(([k]) => k in changes);
+          if (entries.length > 0) {
+            const setClause = entries.map(([, col], i) => `${col}=$${i + 2}`).join(', ');
+            const values = entries.map(([k]) => changes[k]);
+            await c.query(`update eworks.tender_notices set ${setClause} where id=$1`, [tn.rows[0].id, ...values]);
+          }
         }
         await c.query(`select eworks.issue_corrigendum($1,$2,$3::jsonb)`, [tn.rows[0].id, String(summary), JSON.stringify(changes ?? {})]);
       });

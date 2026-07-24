@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import pg from 'pg';
 import { publicTenderBoard, publicTenderDetail } from './tender-queries.mjs';
 process.env.EWORKS_USE_LOCAL_PG = '1';
@@ -157,6 +157,149 @@ describe.skipIf(!dbAvailable)('tender end-to-end flow', () => {
     const after = await pool.query(
       `select count(*)::int as c from eworks.audit_logs where action in ('tender.sanction','tender.publish')`);
     expect(after.rows[0].c).toBeGreaterThan(before.rows[0].c);
+  }, 15000);
+});
+
+describe.skipIf(!dbAvailable)('corrigendum multi-date consolidated UPDATE (Fix 1)', () => {
+  afterAll(async () => {
+    // Publishing (required to exercise a "published notice", per the corrigendum
+    // guard) floats the contract, same as the other describes above — reset the
+    // shared WT-DRAFT-1 fixture back to DRAFT with no sanction/notice.
+    await pool.query(`delete from eworks.tender_corrigenda where notice_id in (select id from eworks.tender_notices where contract_id=$1)`, [contract.id]);
+    await pool.query(`delete from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    await pool.query(`delete from eworks.sanctions where contract_id=$1`, [contract.id]);
+    await pool.query(`update eworks.contracts set status='DRAFT' where id=$1`, [contract.id]);
+  });
+
+  it('applying all shifted dates in one UPDATE succeeds even though the naive per-column sequence would violate the ordering CHECK', async () => {
+    await pool.query(`delete from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    await pool.query(`delete from eworks.sanctions where contract_id=$1`, [contract.id]);
+
+    let noticeId;
+    await withUserSession(officer.userId, async (client) => {
+      const n = await client.query(
+        `insert into eworks.tender_notices (contract_id, notice_no, scope_summary, estimated_value_paise,
+           completion_period_days, emd_amount_paise, submission_close_at, technical_opening_at, financial_opening_at, created_by)
+         values ($1,'NIT-CORRIGENDUM','scope',100000,90,5000,'2026-01-01T00:00:00Z','2026-01-10T00:00:00Z','2026-01-15T00:00:00Z',
+           eworks.current_user_id()) returning id`, [contract.id]);
+      noticeId = n.rows[0].id;
+      await client.query(`select eworks.record_sanction($1, 120000, 'GO-CORR')`, [contract.id]);
+      await client.query(`select eworks.publish_tender_notice($1)`, [noticeId]);
+
+      // Documents the bug: shifting submission_close_at forward ALONE, while
+      // technical_opening_at is still at its original (now earlier) value,
+      // violates tender_notice_dates_ordered — this is why the fix
+      // consolidates every changed date into a single UPDATE.
+      await client.query('savepoint before_naive_update');
+      await expect(
+        client.query(`update eworks.tender_notices set submission_close_at=$2 where id=$1`,
+          [noticeId, '2026-02-01T00:00:00Z']),
+      ).rejects.toThrow(/tender_notice_dates_ordered|check constraint/i);
+      await client.query('rollback to savepoint before_naive_update');
+
+      // The fixed handler's consolidated UPDATE: every changed date column in
+      // the SAME statement, so the CHECK only ever sees the final, valid state.
+      await expect(
+        client.query(
+          `update eworks.tender_notices set submission_close_at=$2, technical_opening_at=$3, financial_opening_at=$4 where id=$1`,
+          [noticeId, '2026-02-01T00:00:00Z', '2026-02-10T00:00:00Z', '2026-02-15T00:00:00Z'],
+        ),
+      ).resolves.not.toThrow();
+    });
+
+    const row = await pool.query(
+      `select submission_close_at as "submissionCloseAt", technical_opening_at as "technicalOpeningAt",
+              financial_opening_at as "financialOpeningAt"
+         from eworks.tender_notices where id=$1`, [noticeId]);
+    expect(row.rows[0].submissionCloseAt.toISOString()).toBe('2026-02-01T00:00:00.000Z');
+    expect(row.rows[0].technicalOpeningAt.toISOString()).toBe('2026-02-10T00:00:00.000Z');
+    expect(row.rows[0].financialOpeningAt.toISOString()).toBe('2026-02-15T00:00:00.000Z');
+  }, 15000);
+});
+
+describe.skipIf(!dbAvailable)('POST /api/gov/tenders/:contractId/notice — 409 on non-editable published notice (Fix 3)', () => {
+  let server, base, cookieFor;
+
+  beforeAll(async () => {
+    const { createApp } = await import('./bff.mjs');
+    const { loadConfig } = await import('./env.mjs');
+    const { setSessionCookie } = await import('./security.mjs');
+    const config = loadConfig({ ...process.env, EWORKS_ENV: undefined });
+    cookieFor = (userId) => {
+      const res = { headers: {}, setHeader(k, v) { this.headers[k] = v; } };
+      setSessionCookie(res, userId, config);
+      return res.headers['Set-Cookie'].split(';')[0];
+    };
+    const provider = { async send() { return { delivered: true }; } };
+    const app = createApp(config, { provider });
+    await new Promise((resolve) => { server = app.listen(0, resolve); });
+    base = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  afterAll(async () => {
+    if (server) await new Promise((resolve) => server.close(resolve));
+    // This block floats the contract by publishing — reset the shared
+    // WT-DRAFT-1 fixture back to DRAFT with no sanction/notice, same as the
+    // other describes in this file.
+    await pool.query(`delete from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    await pool.query(`delete from eworks.sanctions where contract_id=$1`, [contract.id]);
+    await pool.query(`update eworks.contracts set status='DRAFT' where id=$1`, [contract.id]);
+  });
+
+  async function api(userId, method, path, body) {
+    const res = await fetch(`${base}${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json', cookie: cookieFor(userId) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    return { status: res.status, body: await res.json() };
+  }
+
+  it('editing a DRAFT notice still returns 200 and persists changes (happy path preserved)', async () => {
+    await pool.query(`delete from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    await pool.query(`delete from eworks.sanctions where contract_id=$1`, [contract.id]);
+
+    const createRes = await api(officer.userId, 'POST', `/api/gov/tenders/${contract.id}/notice`, {
+      noticeNo: 'NIT-DRAFT-EDIT', scopeSummary: 'scope v1', estimatedValuePaise: 100000,
+      completionPeriodDays: 90, emdAmountPaise: 5000,
+    });
+    expect(createRes.status).toBe(200);
+
+    const editRes = await api(officer.userId, 'POST', `/api/gov/tenders/${contract.id}/notice`, {
+      noticeNo: 'NIT-DRAFT-EDIT', scopeSummary: 'scope v2', estimatedValuePaise: 200000,
+      completionPeriodDays: 90, emdAmountPaise: 5000,
+    });
+    expect(editRes.status).toBe(200);
+
+    const row = await pool.query(`select scope_summary as "scopeSummary" from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    expect(row.rows[0].scopeSummary).toBe('scope v2');
+  }, 15000);
+
+  it('editing an already-PUBLISHED notice returns 409 instead of a silent 200, and leaves the row untouched', async () => {
+    await pool.query(`delete from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    await pool.query(`delete from eworks.sanctions where contract_id=$1`, [contract.id]);
+
+    const createRes = await api(officer.userId, 'POST', `/api/gov/tenders/${contract.id}/notice`, {
+      noticeNo: 'NIT-409TEST', scopeSummary: 'scope', estimatedValuePaise: 100000,
+      completionPeriodDays: 90, emdAmountPaise: 5000,
+    });
+    expect(createRes.status).toBe(200);
+
+    await withUserSession(officer.userId, async (client) => {
+      await client.query(`select eworks.record_sanction($1, 120000, 'GO-409')`, [contract.id]);
+      const n = await client.query(`select id from eworks.tender_notices where contract_id=$1`, [contract.id]);
+      await client.query(`select eworks.publish_tender_notice($1)`, [n.rows[0].id]);
+    });
+
+    const editRes = await api(officer.userId, 'POST', `/api/gov/tenders/${contract.id}/notice`, {
+      noticeNo: 'NIT-409TEST-EDIT', scopeSummary: 'changed scope', estimatedValuePaise: 999,
+      completionPeriodDays: 90, emdAmountPaise: 5000,
+    });
+    expect(editRes.status).toBe(409);
+    expect(editRes.body.error).toBe('notice_not_editable');
+
+    const row = await pool.query(`select scope_summary as "scopeSummary" from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    expect(row.rows[0].scopeSummary).toBe('scope'); // rejected edit never touched the row
   }, 15000);
 });
 
