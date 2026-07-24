@@ -3,6 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import pg from 'pg';
 import { financeSummary, financeDistricts, financeOrders, financeOrderDetail } from './oversight-queries.mjs';
 import { financeVendors, oversightFlags } from './oversight-queries.mjs';
+import { toCsv } from './oversight-finance.mjs';
 
 // EWORKS_USE_LOCAL_PG must be hardcoded (not `|| '1'`) and set BEFORE db.mjs is
 // imported: ES-module imports are hoisted and execute before this file's own
@@ -130,6 +131,19 @@ maybe('vendors + flags', () => {
     for (const f of flags) {
       expect(['warn', 'integrity']).toContain(f.severity);
       expect(typeof f.kind).toBe('string');
+    }
+  });
+});
+
+maybe('csv export shape', () => {
+  it('district CSV header + first data row match the JSON rollup', async () => {
+    const rows = await withUserSession(headAdmin.userId, (c) => financeDistricts(c));
+    const csv = toCsv(['District', 'Floated', 'Awarded (paise)'],
+      rows.map((r) => [r.district, r.floatedCount, r.awardedValuePaise]));
+    const lines = csv.trim().split('\r\n');
+    expect(lines[0]).toBe('District,Floated,Awarded (paise)');
+    if (rows.length) {
+      expect(lines[1]).toContain(String(rows[0].awardedValuePaise));
     }
   });
 });

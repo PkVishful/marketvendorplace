@@ -25,6 +25,7 @@ import {
   loadChildRegions, loadCollapseChain, loadAncestors, loadProjects, loadSubtreeSummary,
 } from './area-queries.mjs';
 import { financeSummary, financeDistricts, financeOrders, financeOrderDetail, financeVendors, oversightFlags } from './oversight-queries.mjs';
+import { toCsv } from './oversight-finance.mjs';
 import { pickEffectiveNode, buildBreadcrumbs } from './area.mjs';
 import { selectProvider } from './otp/provider.mjs';
 import { shapeChecklist, deriveReqStatus } from './catalog.mjs';
@@ -2148,6 +2149,36 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
       res.json(payload);
     } catch (err) {
       res.status(500).json({ error: 'query_failed', detail: err.message });
+    }
+  });
+
+  app.get('/api/gov/oversight/finance/export.csv', async (req, res) => {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const table = String(req.query.table || 'districts');
+    try {
+      const csv = await withUserSession(userId, async (client) => {
+        if (table === 'districts') {
+          const rows = await financeDistricts(client);
+          return toCsv(
+            ['District', 'Floated', 'Awarded (paise)', 'Savings (paise)', 'Held (paise)', 'Released (paise)', 'Failed (paise)'],
+            rows.map((r) => [r.district, r.floatedCount, r.awardedValuePaise, r.savingsPaise, r.paymentsHeldPaise, r.paymentsReleasedPaise, r.failedValuePaise]));
+        }
+        if (table === 'vendors') {
+          const rows = await financeVendors(client);
+          return toCsv(['Vendor', 'Awarded (paise)', 'Paid (paise)', 'Pending (paise)'],
+            rows.map((r) => [r.vendorName, r.awardedPaise, r.paidPaise, r.pendingPaise]));
+        }
+        // orders
+        const { rows } = await financeOrders(client, { limit: 1000, offset: 0 });
+        return toCsv(['Milestone', 'Org', 'Status', 'Estimate (paise)', 'Bids', 'Award (paise)', 'Awarded vendor', 'Payment'],
+          rows.map((r) => [r.milestone, r.orgName, r.status, r.estimatePaise, r.bidCount, r.awardPaise, r.awardedVendor, r.paymentStatus]));
+      });
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="oversight-${table}.csv"`);
+      res.send(csv);
+    } catch (err) {
+      res.status(500).json({ error: 'export_failed', detail: err.message });
     }
   });
 
