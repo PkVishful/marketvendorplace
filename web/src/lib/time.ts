@@ -37,6 +37,15 @@ export function formatDeadline(iso: string): string {
   }).format(d);
 }
 
+export function formatTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(d);
+}
+
 export function formatInr(paise: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',

@@ -2164,6 +2164,18 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
              a.entity_type  as "entityType",
              a.entity_id    as "entityId",
              a.org_path::text as "orgPath",
+             -- The district-level ancestor of the entry's org scope, resolved to
+             -- a readable name so the client can filter by district.
+             (select dou.name
+                from eworks.org_units dou
+               where dou.path @> a.org_path and dou.level = 'DISTRICT'
+               limit 1) as "district",
+             -- The actor's active role code(s), comma-joined. Lets the client
+             -- filter by role without another round trip.
+             (select string_agg(distinct ur.role_code, ',' order by ur.role_code)
+                from eworks.user_roles ur
+               where ur.user_id = a.actor_id
+                 and (ur.expires_at is null or ur.expires_at > now())) as "role",
              a.payload,
              a.occurred_at  as "occurredAt",
              p.full_name    as "actorName"

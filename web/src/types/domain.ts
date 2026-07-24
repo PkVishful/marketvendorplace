@@ -520,6 +520,8 @@ export interface AuditLogRow {
   entityType: string;
   entityId: string | null;
   orgPath: string | null;
+  district: string | null;
+  role: string | null;
   payload: Record<string, unknown>;
   occurredAt: string;
   actorName: string | null;
