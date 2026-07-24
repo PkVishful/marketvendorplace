@@ -2156,6 +2156,9 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     const userId = requireUser(req, res);
     if (!userId) return;
     const table = String(req.query.table || 'districts');
+    if (!['districts', 'orders', 'vendors'].includes(table)) {
+      return res.status(400).json({ error: 'bad_table' });
+    }
     try {
       const csv = await withUserSession(userId, async (client) => {
         if (table === 'districts') {
