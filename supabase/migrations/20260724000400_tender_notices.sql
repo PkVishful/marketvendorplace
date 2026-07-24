@@ -182,10 +182,12 @@ begin
 end; $$;
 
 -- Guard: no notice may reach PUBLISHED without a sanction (unbypassable).
+-- Fires on INSERT too, so a direct `insert ... status='PUBLISHED'` cannot
+-- skip the sanction check that a BEFORE UPDATE-only trigger would miss.
 create or replace function eworks.tender_notice_publish_guard()
 returns trigger language plpgsql as $$
 begin
-  if new.status='PUBLISHED' and old.status is distinct from 'PUBLISHED' then
+  if new.status='PUBLISHED' and (tg_op='INSERT' or old.status is distinct from 'PUBLISHED') then
     if not exists (select 1 from eworks.sanctions s where s.contract_id=new.contract_id) then
       raise exception 'a sanction is required before publishing the tender notice';
     end if;
@@ -194,7 +196,7 @@ begin
   return new;
 end; $$;
 drop trigger if exists tender_notice_publish_trg on eworks.tender_notices;
-create trigger tender_notice_publish_trg before update on eworks.tender_notices
+create trigger tender_notice_publish_trg before insert or update on eworks.tender_notices
   for each row execute function eworks.tender_notice_publish_guard();
 
 -- Publish: controlled path — permission check, set PUBLISHED (guard fires), float the contract, audit.
@@ -209,6 +211,9 @@ begin
   update eworks.tender_notices set status='PUBLISHED', published_by=eworks.current_user_id(), published_at=now()
     where id=p_notice_id returning * into v_notice;
   update eworks.contracts set status='FLOATED' where id=v_notice.contract_id and status='DRAFT';
+  if not found then
+    raise exception 'contract % is not DRAFT and cannot be floated', v_notice.contract_id;
+  end if;
   insert into eworks.audit_logs (actor_id, action, entity_type, entity_id, org_path, payload)
   values (eworks.current_user_id(), 'tender.publish', 'tender_notice', p_notice_id, v_path,
           jsonb_build_object('contract_id', v_notice.contract_id, 'notice_no', v_notice.notice_no));
@@ -253,8 +258,3 @@ revoke all on function eworks.issue_corrigendum(uuid,text,jsonb) from public;
 grant execute on function eworks.record_sanction(uuid,bigint,text) to eworks_authenticated;
 grant execute on function eworks.publish_tender_notice(uuid) to eworks_authenticated;
 grant execute on function eworks.issue_corrigendum(uuid,text,jsonb) to eworks_authenticated;
-
--- Task 1's grants omitted delete on these two tables; test fixtures clean up
--- prior rows directly (outside the security-definer functions) and need it.
-grant delete on eworks.tender_notices to eworks_authenticated;
-grant delete on eworks.sanctions to eworks_authenticated;

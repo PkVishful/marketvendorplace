@@ -49,14 +49,17 @@ describe.skipIf(!dbAvailable)('tender rules', () => {
   });
 
   it('publish is blocked without a sanction, allowed after, and floats the contract', async () => {
+    // Cleanup of prior fixture rows runs via the raw pool (not the RLS-guarded
+    // eworks_authenticated role) — eworks_authenticated no longer holds DELETE
+    // on these tables (see Fix 2: the DELETE grant was a production hole).
+    await pool.query(`delete from eworks.tender_notices where contract_id=$1`, [contract.id]);
+    await pool.query(`delete from eworks.sanctions where contract_id=$1`, [contract.id]);
     await withUserSession(officer.userId, async (client) => {
       // fresh notice on the DRAFT contract (clean any prior)
-      await client.query(`delete from eworks.tender_notices where contract_id=$1`, [contract.id]);
       const n = await client.query(
         `insert into eworks.tender_notices (contract_id, notice_no, scope_summary, estimated_value_paise, completion_period_days, emd_amount_paise, created_by)
          values ($1,'NIT-TEST','scope',100000,90,5000, eworks.current_user_id()) returning id`, [contract.id]);
       const noticeId = n.rows[0].id;
-      await client.query(`delete from eworks.sanctions where contract_id=$1`, [contract.id]);
       // Postgres aborts the whole transaction on error; wrap the
       // expected-to-fail call in a savepoint so the rest of this
       // withUserSession transaction can keep going.
@@ -72,6 +75,17 @@ describe.skipIf(!dbAvailable)('tender rules', () => {
       // corrigendum now allowed + auto-numbers
       const cg = await client.query(`select (eworks.issue_corrigendum($1,'extend dates','{}'::jsonb)).corrigendum_no as n`, [noticeId]);
       expect(cg.rows[0].n).toBe(1);
+    });
+  }, 15000);
+
+  it('record_sanction rejects a user without contract.manage over the contract', async () => {
+    const outsider = await pool.query(
+      `select owner_user_id as "userId" from eworks.contractors where owner_user_id is not null limit 1`);
+    const outsiderId = outsider.rows[0]?.userId;
+    expect(outsiderId, 'expected a contractor owner_user_id fixture to test against').toBeTruthy();
+    await withUserSession(outsiderId, async (client) => {
+      await expect(client.query(`select eworks.record_sanction($1, 1000, 'X')`, [contract.id]))
+        .rejects.toThrow(/authorized/i);
     });
   }, 15000);
 });
