@@ -675,3 +675,124 @@ export interface ProjectChecklistStage {
 export interface ProjectChecklist {
   stages: ProjectChecklistStage[];
 }
+
+// --- Works tender (gov / public / contractor eligibility) ------------------
+
+export type TenderNoticeStatus = 'DRAFT' | 'PUBLISHED';
+
+export interface TenderEligibilityCriterion {
+  id: string;
+  seq: number;
+  label: string;
+  description: string;
+  kind: string;
+}
+
+export interface TenderCorrigendum {
+  corrigendumNo: number;
+  summary: string;
+  issuedAt: string;
+}
+
+/** Full notice shape returned inline within `GovTenderView.notice`. */
+export interface TenderNoticeDetail {
+  id: string;
+  contractId: string;
+  noticeNo: string;
+  scopeSummary: string;
+  estimatedValuePaise: number;
+  completionPeriodDays: number;
+  emdAmountPaise: number;
+  publishAt: string | null;
+  queryDeadlineAt: string | null;
+  submissionCloseAt: string | null;
+  technicalOpeningAt: string | null;
+  financialOpeningAt: string | null;
+  status: TenderNoticeStatus;
+  publishedAt: string | null;
+}
+
+export interface GovTenderView {
+  contract: {
+    id: string;
+    code: string;
+    title: string;
+    valuePaise: number;
+    status: string;
+  };
+  sanction: {
+    amountPaise: number;
+    orderNo: string;
+    sanctionedAt: string;
+  } | null;
+  notice: TenderNoticeDetail | null;
+  criteria: TenderEligibilityCriterion[];
+  corrigenda: TenderCorrigendum[];
+}
+
+/** One row of the public tender board (`GET /api/public/tenders`). */
+export interface TenderBoardRow {
+  noticeId: string;
+  noticeNo: string;
+  contractCode: string;
+  title: string;
+  scopeSummary: string;
+  estimatedValuePaise: number;
+  emdAmountPaise: number;
+  submissionCloseAt: string | null;
+  technicalOpeningAt: string | null;
+}
+
+/** Public-facing notice detail — omits contractId/status/publishedAt, which
+ * stay internal to the gov view. */
+export interface TenderNoticeDetailPublic {
+  id: string;
+  noticeNo: string;
+  contractCode: string;
+  title: string;
+  scopeSummary: string;
+  estimatedValuePaise: number;
+  completionPeriodDays: number;
+  emdAmountPaise: number;
+  publishAt: string | null;
+  queryDeadlineAt: string | null;
+  submissionCloseAt: string | null;
+  technicalOpeningAt: string | null;
+  financialOpeningAt: string | null;
+  criteria: Omit<TenderEligibilityCriterion, 'id'>[];
+  corrigenda: TenderCorrigendum[];
+}
+
+/** `GET /api/public/tenders/:noticeId` wraps the row in a found flag since a
+ * DRAFT or missing notice id resolves to `{ found: false }` rather than 404. */
+export type PublicTenderDetailResponse =
+  | ({ found: true } & TenderNoticeDetailPublic)
+  | { found: false };
+
+export interface ContractorExperienceRow {
+  id: string;
+  workName: string;
+  clientName: string;
+  valuePaise: number;
+  completedOn: string | null;
+}
+
+export interface ContractorMachineryRow {
+  id: string;
+  name: string;
+  quantity: number;
+  capacity: string;
+}
+
+export interface ContractorEngineerRow {
+  id: string;
+  name: string;
+  qualification: string;
+  role: string;
+}
+
+export interface ContractorEligibility {
+  experience: ContractorExperienceRow[];
+  machinery: ContractorMachineryRow[];
+  engineers: ContractorEngineerRow[];
+}
