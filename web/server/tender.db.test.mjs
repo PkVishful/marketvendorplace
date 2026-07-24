@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import pg from 'pg';
 import { publicTenderBoard } from './tender-queries.mjs';
 process.env.EWORKS_USE_LOCAL_PG = '1';
@@ -8,6 +8,11 @@ process.env.PGPORT = process.env.PGPORT || '5433';
 process.env.PGUSER = process.env.PGUSER || 'postgres';
 process.env.PGPASSWORD = process.env.PGPASSWORD || 'postgres';
 process.env.PGDATABASE = process.env.PGDATABASE || 'eworks';
+
+// Obtained once at module scope (env vars above are set before this import,
+// so db.mjs picks up the local PG target) and shared by every describe below.
+let withUserSession, pool;
+({ withUserSession, pool } = await import('./db.mjs'));
 
 const probe = new pg.Pool({ host: process.env.PGHOST, port: Number(process.env.PGPORT),
   user: process.env.PGUSER, password: process.env.PGPASSWORD, database: process.env.PGDATABASE,
@@ -33,12 +38,7 @@ try {
   dbAvailable = fn.rowCount === 1 && Boolean(contract) && Boolean(officer);
 } catch { dbAvailable = false; }
 
-// Runs before 'tender rules' below: that suite's afterAll ends the shared
-// db.mjs pool singleton to release resources, which would break this suite
-// if it ran afterward (query on an ended pool throws).
 describe.skipIf(!dbAvailable)('public tender safety', () => {
-  let pool;
-  beforeAll(async () => { ({ pool } = await import('./db.mjs')); });
   it('the public board returns only PUBLISHED notices, never DRAFT/CANCELLED', async () => {
     const rows = await publicTenderBoard(pool);
     for (const r of rows) {
@@ -49,8 +49,6 @@ describe.skipIf(!dbAvailable)('public tender safety', () => {
 });
 
 describe.skipIf(!dbAvailable)('tender rules', () => {
-  let withUserSession, pool;
-  beforeAll(async () => { ({ withUserSession, pool } = await import('./db.mjs')); });
   afterAll(async () => {
     // Publishing floats the contract (by design), which would consume the
     // only DRAFT fixture the probe above relies on. Reset the fixture back
@@ -60,8 +58,6 @@ describe.skipIf(!dbAvailable)('tender rules', () => {
     await pool.query(`delete from eworks.tender_notices where contract_id=$1`, [contract.id]);
     await pool.query(`delete from eworks.sanctions where contract_id=$1`, [contract.id]);
     await pool.query(`update eworks.contracts set status='DRAFT' where id=$1`, [contract.id]);
-    await probe.end();
-    await pool.end();
   });
 
   it('publish is blocked without a sanction, allowed after, and floats the contract', async () => {
@@ -104,4 +100,11 @@ describe.skipIf(!dbAvailable)('tender rules', () => {
         .rejects.toThrow(/authorized/i);
     });
   }, 15000);
+});
+
+// Runs exactly once, regardless of describe declaration order, since it's
+// registered at file scope rather than inside either describe above.
+afterAll(async () => {
+  await probe.end();
+  if (pool) await pool.end();
 });
