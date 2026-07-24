@@ -81,14 +81,14 @@ export function createGovOrder(body: {
   );
 }
 
-export function floatGovOrder(orderId: string) {
+export function floatGovOrder(orderId: string, estimatedAmountPaise?: number) {
   return apiClient.post<{
     id: string;
     status: string;
     floatedAt: string;
     bidCloseAt: string;
     revealCloseAt: string;
-  }>(`/api/gov/orders/${orderId}/float`, {});
+  }>(`/api/gov/orders/${orderId}/float`, { estimatedAmountPaise });
 }
 
 export function closeGovBidding(orderId: string) {

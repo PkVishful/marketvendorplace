@@ -94,8 +94,9 @@ export function useCreateGovOrder(projectId: string) {
 export function useFloatGovOrder(projectId?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: floatGovOrder,
-    onSuccess: (_data, orderId) => {
+    mutationFn: ({ orderId, estimatedAmountPaise }: { orderId: string; estimatedAmountPaise?: number }) =>
+      floatGovOrder(orderId, estimatedAmountPaise),
+    onSuccess: (_data, { orderId }) => {
       void qc.invalidateQueries({ queryKey: govKeys.orders(projectId) });
       void qc.invalidateQueries({ queryKey: govKeys.orders() });
       void qc.invalidateQueries({ queryKey: govKeys.orderDetail(orderId) });

@@ -62,7 +62,7 @@ export function RfqPipelineView({
   onProjectFilterChange: (id: string) => void;
   message: { tone: 'good' | 'danger'; text: string } | null;
   floatPending: boolean;
-  onFloat: (orderId: string) => void;
+  onFloat: (orderId: string, estimatedAmountPaise?: number) => void;
 }) {
   const { t } = useTranslation();
 
@@ -72,6 +72,7 @@ export function RfqPipelineView({
   // the caller on a page that no longer exists.
   const PAGE_SIZE = 10;
   const [page, setPage] = useState(1);
+  const [estimateRupees, setEstimateRupees] = useState<Record<string, string>>({});
   const win = pageWindow({ total: orders.length, page, pageSize: PAGE_SIZE });
   const visible = orders.slice((win.page - 1) * PAGE_SIZE, win.page * PAGE_SIZE);
 
@@ -233,17 +234,34 @@ export function RfqPipelineView({
                       <td className="whitespace-nowrap">{formatDate(o.requiredBy)}</td>
                       <td className="text-right">
                         {canFloat ? (
-                          <button
-                            type="button"
-                            className="gov-btn-primary text-xs"
-                            disabled={floatPending}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onFloat(o.id);
-                            }}
-                          >
-                            {floatPending ? t('govOrders.floating') : t('govOrders.float')}
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <input
+                              type="number"
+                              min="0"
+                              inputMode="numeric"
+                              placeholder={t('govOrders.estimatePlaceholder')}
+                              aria-label={t('govOrders.estimateLabel')}
+                              className="gov-input w-24 text-xs"
+                              value={estimateRupees[o.id] ?? ''}
+                              onChange={(e) =>
+                                setEstimateRupees((m) => ({ ...m, [o.id]: e.target.value }))
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <button
+                              type="button"
+                              className="gov-btn-primary text-xs"
+                              disabled={floatPending}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const rupees = estimateRupees[o.id];
+                                const paise = rupees ? Math.round(Number(rupees) * 100) : undefined;
+                                onFloat(o.id, paise);
+                              }}
+                            >
+                              {floatPending ? t('govOrders.floating') : t('govOrders.float')}
+                            </button>
+                          </div>
                         ) : canOpen ? (
                           <Link
                             to={`/gov/orders/${o.id}`}

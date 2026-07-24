@@ -1448,8 +1448,18 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
   app.post('/api/gov/orders/:id/float', async (req, res) => {
     const userId = requireUser(req, res);
     if (!userId) return;
+    const raw = req.body?.estimatedAmountPaise;
+    const estimate = raw === undefined || raw === null || raw === '' ? null : Number(raw);
+    if (estimate !== null && (!Number.isFinite(estimate) || estimate < 0)) {
+      return res.status(400).json({ error: 'bad_estimate' });
+    }
     try {
       const row = await withUserSession(userId, async (client) => {
+        if (estimate !== null) {
+          await client.query(
+            `update eworks.test_orders set estimated_amount_paise = $2 where id = $1`,
+            [req.params.id, estimate]);
+        }
         const q = await client.query(
           `select
              id,

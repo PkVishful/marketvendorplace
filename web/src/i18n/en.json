@@ -856,6 +856,8 @@
     "colAction": "Action",
     "float": "Float RFQ",
     "floating": "Floating…",
+    "estimatePlaceholder": "Est. ₹",
+    "estimateLabel": "Officer estimate in rupees",
     "floatFailed": "Could not float order.",
     "floatedOk": "Order floated — bidding closes {{close}}.",
     "bidCloses": "Bids close {{when}}",

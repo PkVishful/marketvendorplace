@@ -14,10 +14,10 @@ export function GovOrdersPage() {
   const floatOrder = useFloatGovOrder(projectId);
   const [message, setMessage] = useState<{ tone: 'good' | 'danger'; text: string } | null>(null);
 
-  async function onFloat(orderId: string) {
+  async function onFloat(orderId: string, estimatedAmountPaise?: number) {
     setMessage(null);
     try {
-      const row = await floatOrder.mutateAsync(orderId);
+      const row = await floatOrder.mutateAsync({ orderId, estimatedAmountPaise });
       setMessage({
         tone: 'good',
         text: t('govOrders.floatedOk', {
@@ -55,7 +55,7 @@ export function GovOrdersPage() {
       onProjectFilterChange={setProjectFilter}
       message={message}
       floatPending={floatOrder.isPending}
-      onFloat={(id) => void onFloat(id)}
+      onFloat={(id, est) => void onFloat(id, est)}
     />
   );
 }
