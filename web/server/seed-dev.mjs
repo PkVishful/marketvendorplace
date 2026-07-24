@@ -36,6 +36,20 @@ async function ensureDevIdentity(client) {
   await runSqlFile(client, 'seed-vendor-fixtures.sql');
 }
 
+// Backfill officer estimates on ~70% of awarded orders so the savings rollup has
+// signal; the rest stay NULL on purpose, to prove missing estimates are excluded
+// (not zeroed). Deterministic (seq parity), so re-running is idempotent.
+async function seedOrderEstimates(client) {
+  await client.query(`
+    update eworks.test_orders o
+       set estimated_amount_paise = round(oa.price_paise * (1.05 + (('x'||substr(md5(o.id::text),1,4))::bit(16)::int % 21) / 100.0))
+      from eworks.order_award oa
+     where oa.order_id = o.id
+       and o.status = 'AWARDED'
+       and (('x'||substr(md5(o.id::text),1,2))::bit(8)::int % 10) < 7
+  `);
+}
+
 const VENDOR_A = '55555555-0000-0000-0000-00000000000a';
 const VENDOR_C = '55555555-0000-0000-0000-00000000000c';
 const ORDER_FLOAT = 'aaaa1111-0000-0000-0000-000000000001';
@@ -259,6 +273,12 @@ async function main() {
 
     // Field job demo (needs Vendor A eligible at bid time).
     await seedFieldJob(client);
+
+    // Runs last, after every seed step that can award an order (districts,
+    // contracts, the field job), so it sees every AWARDED order's order_award
+    // row. Placing it earlier (e.g. right after ensureDevIdentity) finds no
+    // AWARDED orders yet and backfills nothing.
+    await seedOrderEstimates(client);
 
     await seedKycDemo(client);
 
