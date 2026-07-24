@@ -1,14 +1,21 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import pg from 'pg';
-import { withUserSession, pool } from './db.mjs';
 
-process.env.EWORKS_USE_LOCAL_PG = process.env.EWORKS_USE_LOCAL_PG || '1';
+// EWORKS_USE_LOCAL_PG must be hardcoded (not `|| '1'`) and set BEFORE db.mjs is
+// imported: ES-module imports are hoisted and execute before this file's own
+// top-level statements, so db.mjs would otherwise build its pool from whatever
+// ambient env the shell has (which may point at the shared remote Supabase)
+// before we get a chance to force it local. Using a dynamic import below defers
+// loading db.mjs until after these env vars are set, guaranteeing its pool is local.
+process.env.EWORKS_USE_LOCAL_PG = '1';
 process.env.PGHOST = process.env.PGHOST || '127.0.0.1';
 process.env.PGPORT = process.env.PGPORT || '5433';
 process.env.PGUSER = process.env.PGUSER || 'postgres';
 process.env.PGPASSWORD = process.env.PGPASSWORD || 'postgres';
 process.env.PGDATABASE = process.env.PGDATABASE || 'eworks';
+
+const { withUserSession, pool } = await import('./db.mjs');
 
 const probe = new pg.Pool({
   host: process.env.PGHOST, port: Number(process.env.PGPORT),
