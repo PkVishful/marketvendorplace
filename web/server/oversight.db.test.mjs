@@ -33,6 +33,7 @@ let floatingOfficer = null; // { orderId, userId } -- an AWARDED order + a SITE_
 // seeded eworks.role_permissions, HEAD_ADMIN does NOT hold `order.float` (only
 // SITE_ENGINEER does), so a HEAD_ADMIN-driven UPDATE would silently affect 0 rows.
 let headAdmin = null; // { userId }
+let districtOfficer = null; // { userId }
 try {
   floatingOfficer = (await probe.query(
     `select o.id as "orderId", ur.user_id as "userId"
@@ -44,7 +45,11 @@ try {
       limit 1`)).rows[0] ?? null;
   headAdmin = (await probe.query(
     `select user_id as "userId" from eworks.user_roles where role_code = 'HEAD_ADMIN' limit 1`)).rows[0] ?? null;
-  dbAvailable = Boolean(floatingOfficer) && Boolean(headAdmin);
+  districtOfficer = (await probe.query(
+    `select ur.user_id as "userId" from eworks.user_roles ur
+       join eworks.org_units ou on ou.id=ur.org_unit_id
+      where ur.role_code='DISTRICT_OFFICER' and ou.level='DISTRICT' limit 1`)).rows[0] ?? null;
+  dbAvailable = Boolean(floatingOfficer) && Boolean(headAdmin) && Boolean(districtOfficer);
 } catch { dbAvailable = false; }
 const maybe = dbAvailable ? describe : describe.skip;
 
@@ -81,6 +86,12 @@ maybe('finance summary + districts', () => {
       expect(typeof r.awardedValuePaise).toBe('number');
     }
   });
+  it('a district officer only sees their own district, not the full rollup', async () => {
+    const adminRows = await withUserSession(headAdmin.userId, (c) => financeDistricts(c));
+    const officerRows = await withUserSession(districtOfficer.userId, (c) => financeDistricts(c));
+    expect(officerRows.length).toBeGreaterThan(0);
+    expect(officerRows.length).toBeLessThan(adminRows.length);
+  }, 15000);
 });
 
 maybe('order ledger + sealed-bid confidentiality', () => {
