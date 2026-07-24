@@ -30,6 +30,10 @@ import { ChecklistScreen } from '@/features/catalog/ChecklistScreen';
 import { ContractorLayout } from '@/app/ContractorLayout';
 import { ContractsPage } from '@/features/contractor/ContractsPage';
 import { ContractorRegistration } from '@/features/contractor/ContractorRegistration';
+import { EligibilityPage } from '@/features/contractor/eligibility/EligibilityPage';
+import { TenderBoardPage } from '@/features/public/tenders/TenderBoardPage';
+import { TenderDetailPage } from '@/features/public/tenders/TenderDetailPage';
+import { TenderWizardPage } from '@/features/gov/tenders/TenderWizardPage';
 import { NotFoundPage } from '@/app/NotFoundPage';
 
 export function App() {
@@ -40,6 +44,8 @@ export function App() {
         <Route path="/sign-in" element={null} />
         <Route path="/verify" element={<VerifyCertificatePage />} />
         <Route path="/verify/:certId" element={<VerifyCertificatePage />} />
+        <Route path="/tenders" element={<TenderBoardPage />} />
+        <Route path="/tenders/:noticeId" element={<TenderDetailPage />} />
 
         <Route element={<RequirePortal portal="vendor" />}>
           <Route path="/vendor" element={<VendorLayout />}>
@@ -63,6 +69,7 @@ export function App() {
           <Route path="/contractor" element={<ContractorLayout />}>
             <Route index element={<ContractsPage />} />
             <Route path="registration" element={<ContractorRegistration />} />
+            <Route path="eligibility" element={<EligibilityPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="help" element={<HelpSupportPage />} />
             <Route path="*" element={<NotFoundPage />} />
@@ -83,6 +90,8 @@ export function App() {
             <Route path="ratings" element={<VendorRatingsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="audit" element={<AuditLogPage />} />
+            <Route path="tenders" element={<TenderWizardPage />} />
+            <Route path="tenders/:contractId" element={<TenderWizardPage />} />
             <Route path="settings" element={<GovSettingsPage />} />
             <Route path="help" element={<HelpSupportPage />} />
             <Route path="*" element={<NotFoundPage />} />

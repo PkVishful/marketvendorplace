@@ -23,6 +23,7 @@ export const GOV_NAV_TAB_KEYS = [
   { key: 'ratings', labelKey: 'ratings.nav' },
   { key: 'analytics', labelKey: 'analytics.nav' },
   { key: 'audit', labelKey: 'audit.nav' },
+  { key: 'tenders', labelKey: 'tender.nav' },
 ] as const;
 
 const GOV_ALL: NavItem[] = [
@@ -36,6 +37,7 @@ const GOV_ALL: NavItem[] = [
   { to: '/gov/ratings', labelKey: 'ratings.nav', navKey: 'ratings', requiresPermission: 'vendor.read' },
   { to: '/gov/analytics', labelKey: 'analytics.nav', navKey: 'analytics', requiresPermission: 'order.read' },
   { to: '/gov/audit', labelKey: 'audit.nav', navKey: 'audit', requiresPermission: ['audit.read', 'audit.read_all'] },
+  { to: '/gov/tenders', labelKey: 'tender.nav', navKey: 'tenders', requiresPermission: 'contract.manage' },
 ];
 
 const VENDOR_OWNER: NavItem[] = [
@@ -57,6 +59,7 @@ const FIELD_TECH: NavItem[] = [
 const CONTRACTOR_NAV: NavItem[] = [
   { to: '/contractor', labelKey: 'contractor.navContracts', end: true },
   { to: '/contractor/registration', labelKey: 'contractor.navRegistration' },
+  { to: '/contractor/eligibility', labelKey: 'eligibility.nav' },
 ];
 
 export const VENDOR_MOBILE_NAV: NavItem[] = [

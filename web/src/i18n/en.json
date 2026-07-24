@@ -1256,5 +1256,161 @@
     "notApprovedTitle": "Complete your registration to bid",
     "notApprovedBody": "Open tenders appear here once your contractor registration is approved by the district officer.",
     "goToRegistration": "Go to registration"
+  },
+  "tender": {
+    "nav": "Tenders",
+    "wizard": {
+      "title": "Tender wizard",
+      "subtitle": "Sanction, publish, and manage the tender notice for a works contract.",
+      "pickContract": "Open a contract",
+      "pickContractHint": "Enter the contract ID to sanction and publish its tender notice.",
+      "contractIdLabel": "Contract ID",
+      "openContract": "Open",
+      "loading": "Loading contract…",
+      "notFound": "Contract not found, or outside your scope.",
+      "step": {
+        "sanction": "Sanction",
+        "notice": "Notice",
+        "publish": "Publish"
+      }
+    },
+    "contract": {
+      "code": "Contract",
+      "title": "Title",
+      "value": "Contract value",
+      "status": "Status"
+    },
+    "sanction": {
+      "title": "Administrative sanction",
+      "subtitle": "Record the sanctioned amount and government order number before publishing.",
+      "amount": "Sanctioned amount (₹)",
+      "orderNo": "Government order (G.O.) number",
+      "save": "Record sanction",
+      "saving": "Saving…",
+      "existing": "Sanctioned {{amount}} · G.O. {{orderNo}} on {{date}}",
+      "invalidAmount": "Enter a valid sanctioned amount.",
+      "orderNoRequired": "Enter the government order number.",
+      "saveFailed": "Could not record the sanction."
+    },
+    "notice": {
+      "title": "Tender notice",
+      "subtitle": "Fill in the notice details and eligibility criteria, then publish.",
+      "noticeNo": "Notice number",
+      "scopeSummary": "Scope of work",
+      "estimatedValue": "Estimated value (₹)",
+      "completionPeriod": "Completion period (days)",
+      "emdAmount": "EMD amount (₹)",
+      "publishAt": "Publish date",
+      "queryDeadline": "Query deadline",
+      "submissionClose": "Submission closes",
+      "technicalOpening": "Technical bid opening",
+      "financialOpening": "Financial bid opening",
+      "criteria": "Eligibility criteria",
+      "criteriaLabel": "Criterion",
+      "criteriaDescription": "Description",
+      "criteriaKind": "Kind",
+      "addCriterion": "Add criterion",
+      "removeCriterion": "Remove",
+      "save": "Save notice",
+      "saving": "Saving…",
+      "saveOk": "Notice saved.",
+      "saveFailed": "Could not save the notice.",
+      "readOnlyHint": "This notice is published — edit dates and details with a corrigendum instead.",
+      "status": {
+        "DRAFT": "Draft",
+        "PUBLISHED": "Published",
+        "CLOSED": "Closed",
+        "CANCELLED": "Cancelled"
+      }
+    },
+    "publish": {
+      "action": "Publish notice",
+      "publishing": "Publishing…",
+      "sanctionRequired": "Record a sanction before publishing this notice.",
+      "noticeRequired": "Save the notice before publishing.",
+      "publishFailed": "Could not publish the notice.",
+      "publishedOn": "Published {{date}}"
+    },
+    "corrigendum": {
+      "title": "Corrigendum",
+      "action": "Issue corrigendum",
+      "summary": "Summary of changes",
+      "summaryRequired": "Enter a summary for the corrigendum.",
+      "submit": "Issue corrigendum",
+      "submitting": "Issuing…",
+      "submitFailed": "Could not issue the corrigendum.",
+      "history": "Corrigendum history",
+      "empty": "No corrigenda issued yet.",
+      "entry": "Corrigendum {{no}} · {{date}}",
+      "cancel": "Cancel"
+    },
+    "board": {
+      "title": "Open tenders",
+      "subtitle": "Live tender notices published for public works across Tamil Nadu.",
+      "emptyTitle": "No open tenders",
+      "emptyBody": "Published tender notices appear here.",
+      "estValue": "Estimated value",
+      "emd": "EMD",
+      "closes": "Submission closes",
+      "viewDetail": "View notice"
+    },
+    "detail": {
+      "notFoundTitle": "Notice not available",
+      "notFoundBody": "This tender notice is not published, or the link is incorrect.",
+      "scope": "Scope of work",
+      "estValue": "Estimated value",
+      "completionPeriod": "Completion period",
+      "emd": "EMD amount",
+      "queryDeadline": "Query deadline",
+      "submissionClose": "Submission closes",
+      "technicalOpening": "Technical bid opening",
+      "financialOpening": "Financial bid opening",
+      "criteria": "Eligibility criteria",
+      "corrigenda": "Corrigenda",
+      "noCorrigenda": "No corrigenda issued."
+    },
+    "window": {
+      "open": "Open",
+      "closing_soon": "Closing soon",
+      "closed": "Closed"
+    }
+  },
+  "eligibility": {
+    "nav": "Eligibility profile",
+    "title": "Eligibility profile",
+    "subtitle": "Track completed works, machinery, and key engineers to qualify for tenders.",
+    "experience": {
+      "title": "Completed works",
+      "workName": "Work name",
+      "clientName": "Client",
+      "value": "Value (₹)",
+      "completedOn": "Completed on",
+      "add": "Add work",
+      "adding": "Adding…",
+      "empty": "No completed works added yet.",
+      "delete": "Remove"
+    },
+    "machinery": {
+      "title": "Machinery",
+      "name": "Machinery",
+      "quantity": "Quantity",
+      "capacity": "Capacity",
+      "add": "Add machinery",
+      "adding": "Adding…",
+      "empty": "No machinery added yet.",
+      "delete": "Remove"
+    },
+    "engineers": {
+      "title": "Key engineers",
+      "name": "Name",
+      "qualification": "Qualification",
+      "role": "Role",
+      "add": "Add engineer",
+      "adding": "Adding…",
+      "empty": "No engineers added yet.",
+      "delete": "Remove"
+    },
+    "saveFailed": "Could not save.",
+    "deleteFailed": "Could not remove the entry."
   }
 }
