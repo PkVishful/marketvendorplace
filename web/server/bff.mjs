@@ -23,6 +23,7 @@ import {
   corsMiddleware, setSessionCookie, clearSessionCookie, readSessionCookie,
   createRateLimiter, ipKey, phoneKey, redactErrorDetailMiddleware, errorHandler,
 } from './security.mjs';
+import { govTenderView, publicTenderBoard, publicTenderDetail, contractorEligibility } from './tender-queries.mjs';
 
 const KYC_DOC_TYPES = [
   'GST_CERTIFICATE',
@@ -2726,6 +2727,90 @@ export function createApp(config = loadConfig(), { provider = selectProvider(con
     } catch (err) {
       res.status(500).json({ error: 'query_failed', detail: err.message });
     }
+  });
+
+  app.get('/api/gov/tenders/:contractId', async (req, res) => {
+    const userId = requireUser(req, res); if (!userId) return;
+    try {
+      const payload = await withUserSession(userId, (c) => govTenderView(c, req.params.contractId));
+      if (!payload) return res.status(404).json({ error: 'not_found' });
+      res.json(payload);
+    } catch (err) { res.status(500).json({ error: 'query_failed', detail: err.message }); }
+  });
+
+  app.post('/api/gov/tenders/:contractId/sanction', async (req, res) => {
+    const userId = requireUser(req, res); if (!userId) return;
+    const { amountPaise, orderNo } = req.body || {};
+    if (!Number.isFinite(Number(amountPaise)) || Number(amountPaise) <= 0 || !orderNo) return res.status(400).json({ error: 'bad_sanction' });
+    try {
+      await withUserSession(userId, (c) => c.query(`select eworks.record_sanction($1,$2,$3)`, [req.params.contractId, Number(amountPaise), String(orderNo)]));
+      res.json(await withUserSession(userId, (c) => govTenderView(c, req.params.contractId)));
+    } catch (err) { res.status(400).json({ error: 'sanction_failed', detail: err.message }); }
+  });
+
+  app.post('/api/gov/tenders/:contractId/notice', async (req, res) => {
+    const userId = requireUser(req, res); if (!userId) return;
+    const b = req.body || {};
+    try {
+      await withUserSession(userId, async (c) => {
+        const up = await c.query(`
+          insert into eworks.tender_notices (contract_id, notice_no, scope_summary, estimated_value_paise,
+            completion_period_days, emd_amount_paise, publish_at, query_deadline_at, submission_close_at,
+            technical_opening_at, financial_opening_at, created_by)
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, eworks.current_user_id())
+          on conflict (contract_id) do update set notice_no=excluded.notice_no, scope_summary=excluded.scope_summary,
+            estimated_value_paise=excluded.estimated_value_paise, completion_period_days=excluded.completion_period_days,
+            emd_amount_paise=excluded.emd_amount_paise, publish_at=excluded.publish_at, query_deadline_at=excluded.query_deadline_at,
+            submission_close_at=excluded.submission_close_at, technical_opening_at=excluded.technical_opening_at,
+            financial_opening_at=excluded.financial_opening_at
+          where eworks.tender_notices.status='DRAFT'
+          returning id`,
+          [req.params.contractId, b.noticeNo, b.scopeSummary, Number(b.estimatedValuePaise), Number(b.completionPeriodDays),
+           Number(b.emdAmountPaise ?? 0), b.publishAt || null, b.queryDeadlineAt || null, b.submissionCloseAt || null,
+           b.technicalOpeningAt || null, b.financialOpeningAt || null]);
+        const noticeId = up.rows[0]?.id;
+        if (noticeId && Array.isArray(b.criteria)) {
+          await c.query(`delete from eworks.tender_eligibility_criteria where notice_id=$1`, [noticeId]);
+          for (let i = 0; i < b.criteria.length; i += 1) {
+            const cr = b.criteria[i];
+            await c.query(`insert into eworks.tender_eligibility_criteria (notice_id, seq, label, description, kind) values ($1,$2,$3,$4,$5)`,
+              [noticeId, i, cr.label, cr.description ?? '', cr.kind ?? 'general']);
+          }
+        }
+      });
+      res.json(await withUserSession(userId, (c) => govTenderView(c, req.params.contractId)));
+    } catch (err) { res.status(400).json({ error: 'notice_failed', detail: err.message }); }
+  });
+
+  app.post('/api/gov/tenders/:contractId/notice/publish', async (req, res) => {
+    const userId = requireUser(req, res); if (!userId) return;
+    try {
+      await withUserSession(userId, async (c) => {
+        const tn = await c.query(`select id from eworks.tender_notices where contract_id=$1`, [req.params.contractId]);
+        if (tn.rowCount === 0) throw new Error('no notice to publish');
+        await c.query(`select eworks.publish_tender_notice($1)`, [tn.rows[0].id]);
+      });
+      res.json(await withUserSession(userId, (c) => govTenderView(c, req.params.contractId)));
+    } catch (err) { res.status(400).json({ error: 'publish_failed', detail: err.message }); }
+  });
+
+  app.post('/api/gov/tenders/:contractId/notice/corrigendum', async (req, res) => {
+    const userId = requireUser(req, res); if (!userId) return;
+    const { summary, changes } = req.body || {};
+    if (!summary) return res.status(400).json({ error: 'summary_required' });
+    try {
+      await withUserSession(userId, async (c) => {
+        const tn = await c.query(`select id from eworks.tender_notices where contract_id=$1`, [req.params.contractId]);
+        if (tn.rowCount === 0) throw new Error('no notice');
+        // apply amended fields (if provided) then record the corrigendum
+        if (changes && typeof changes === 'object') {
+          const map = { submissionCloseAt: 'submission_close_at', technicalOpeningAt: 'technical_opening_at', financialOpeningAt: 'financial_opening_at', scopeSummary: 'scope_summary' };
+          for (const [k, col] of Object.entries(map)) if (k in changes) await c.query(`update eworks.tender_notices set ${col}=$2 where id=$1`, [tn.rows[0].id, changes[k]]);
+        }
+        await c.query(`select eworks.issue_corrigendum($1,$2,$3::jsonb)`, [tn.rows[0].id, String(summary), JSON.stringify(changes ?? {})]);
+      });
+      res.json(await withUserSession(userId, (c) => govTenderView(c, req.params.contractId)));
+    } catch (err) { res.status(400).json({ error: 'corrigendum_failed', detail: err.message }); }
   });
 
   app.get('/api/kyc/files/:vendorId/:docType', async (req, res) => {
