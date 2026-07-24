@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import pg from 'pg';
+import { publicTenderBoard } from './tender-queries.mjs';
 process.env.EWORKS_USE_LOCAL_PG = '1';
 process.env.PGHOST = process.env.PGHOST || '127.0.0.1';
 process.env.PGPORT = process.env.PGPORT || '5433';
@@ -31,6 +32,21 @@ try {
   }
   dbAvailable = fn.rowCount === 1 && Boolean(contract) && Boolean(officer);
 } catch { dbAvailable = false; }
+
+// Runs before 'tender rules' below: that suite's afterAll ends the shared
+// db.mjs pool singleton to release resources, which would break this suite
+// if it ran afterward (query on an ended pool throws).
+describe.skipIf(!dbAvailable)('public tender safety', () => {
+  let pool;
+  beforeAll(async () => { ({ pool } = await import('./db.mjs')); });
+  it('the public board returns only PUBLISHED notices, never DRAFT/CANCELLED', async () => {
+    const rows = await publicTenderBoard(pool);
+    for (const r of rows) {
+      const s = await pool.query(`select status from eworks.tender_notices where id=$1`, [r.noticeId]);
+      expect(s.rows[0].status).toBe('PUBLISHED');
+    }
+  });
+});
 
 describe.skipIf(!dbAvailable)('tender rules', () => {
   let withUserSession, pool;
