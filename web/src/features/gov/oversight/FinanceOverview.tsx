@@ -10,10 +10,24 @@ import { VendorEarningsLens } from './VendorEarningsLens';
 
 export function FinanceOverview() {
   const { t } = useTranslation();
-  const { data: summary, isPending } = useFinanceSummary();
+  const { data: summary, isPending, isError, refetch } = useFinanceSummary();
   const { data: districts = [] } = useFinanceDistricts();
   const [districtFilter, setDistrictFilter] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+
+  // A failed fetch must read as an error, not a perpetual skeleton — otherwise a
+  // transient backend blip looks like a permanent hang. Mirrors the error+retry
+  // pattern used by the other gov screens.
+  if (isError) {
+    return (
+      <div className="gov-card border-l-4 border-l-danger p-6 text-center">
+        <p className="font-semibold text-danger">{t('states.errorTitle')}</p>
+        <button type="button" onClick={() => void refetch()} className="gov-btn-secondary mt-4">
+          {t('states.retry')}
+        </button>
+      </div>
+    );
+  }
 
   if (isPending || !summary) return <FeedSkeleton />;
 
