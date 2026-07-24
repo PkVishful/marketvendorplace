@@ -63,7 +63,7 @@ export function FinanceOverview() {
               {districts.map((d) => (
                 <tr
                   key={d.districtId}
-                  className={`cursor-pointer ${districtFilter === d.district ? 'bg-brand-tint/30' : 'hover:bg-surface-2'}`}
+                  className={`cursor-pointer ${districtFilter === d.district ? 'bg-brand-tint' : 'hover:bg-surface-2'}`}
                   onClick={() => setDistrictFilter((cur) => (cur === d.district ? '' : d.district))}
                 >
                   <td className="px-6 py-3 font-medium text-ink">{d.district}</td>
