@@ -214,7 +214,8 @@ export async function oversightFlags(client) {
 
   const pctRow = await client.query(
     `select coalesce((select value from eworks.settings where key='oversight.award_over_estimate_pct'), '15') as pct`);
-  const pct = Number(pctRow.rows[0].pct) || 15;
+  const raw = Number(pctRow.rows[0].pct);
+  const pct = Number.isFinite(raw) ? raw : 15;
   const over = await client.query(`
     select o.id as "orderId", o.milestone
       from eworks.test_orders o join eworks.order_award oa on oa.order_id = o.id
