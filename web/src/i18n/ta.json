@@ -1355,6 +1355,7 @@
       "viewDetail": "View notice"
     },
     "detail": {
+      "back": "Back to tenders",
       "notFoundTitle": "Notice not available",
       "notFoundBody": "This tender notice is not published, or the link is incorrect.",
       "scope": "Scope of work",
