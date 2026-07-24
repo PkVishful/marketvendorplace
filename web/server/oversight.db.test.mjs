@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import pg from 'pg';
 import { financeSummary, financeDistricts, financeOrders, financeOrderDetail } from './oversight-queries.mjs';
+import { financeVendors, oversightFlags } from './oversight-queries.mjs';
 
 // EWORKS_USE_LOCAL_PG must be hardcoded (not `|| '1'`) and set BEFORE db.mjs is
 // imported: ES-module imports are hoisted and execute before this file's own
@@ -111,6 +112,24 @@ maybe('order ledger + sealed-bid confidentiality', () => {
       if (!['REVEALING','AWARDED','FAILED','CANCELLED'].includes(r.status)) {
         expect(r.awardPaise).toBeNull();
       }
+    }
+  });
+});
+
+maybe('vendors + flags', () => {
+  it('vendor earnings are non-negative and paid ≤ awarded', async () => {
+    const rows = await withUserSession(headAdmin.userId, (c) => financeVendors(c));
+    for (const v of rows) {
+      expect(v.awardedPaise).toBeGreaterThanOrEqual(0);
+      expect(v.paidPaise).toBeLessThanOrEqual(v.awardedPaise + v.pendingPaise + 1);
+    }
+  });
+  it('flags each carry a kind, severity, and orderId', async () => {
+    const flags = await withUserSession(headAdmin.userId, (c) => oversightFlags(c));
+    expect(Array.isArray(flags)).toBe(true);
+    for (const f of flags) {
+      expect(['warn', 'integrity']).toContain(f.severity);
+      expect(typeof f.kind).toBe('string');
     }
   });
 });

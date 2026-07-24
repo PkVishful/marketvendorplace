@@ -176,3 +176,68 @@ export async function financeOrderDetail(client, orderId) {
     sealed, bidCount, bids, award, payment, certificateId,
   };
 }
+
+export async function financeVendors(client) {
+  const q = await client.query(`
+    select
+      v.id                       as "vendorId",
+      v.legal_name               as "vendorName",
+      coalesce(sum(oa.price_paise), 0)::bigint as "awardedPaise",
+      coalesce((select sum(p.amount_paise) from eworks.payments p
+                 where p.vendor_id = v.id and p.status='RELEASED'), 0)::bigint as "paidPaise",
+      coalesce((select sum(p.amount_paise) from eworks.payments p
+                 where p.vendor_id = v.id and p.status='HELD'), 0)::bigint as "pendingPaise"
+    from eworks.vendors v
+    join eworks.order_award oa on oa.vendor_id = v.id
+    group by v.id, v.legal_name
+    order by "awardedPaise" desc
+  `);
+  return q.rows.map((r) => ({
+    vendorId: r.vendorId, vendorName: r.vendorName,
+    awardedPaise: n(r.awardedPaise), paidPaise: n(r.paidPaise), pendingPaise: n(r.pendingPaise),
+  }));
+}
+
+// Advisory flags only. Threshold for "award over estimate" comes from
+// eworks.settings (key 'oversight.award_over_estimate_pct'), default 15.
+export async function oversightFlags(client) {
+  const flags = [];
+
+  const single = await client.query(`
+    select oa.order_id as "orderId", o.milestone
+      from eworks.order_award oa join eworks.test_orders o on o.id = oa.order_id
+     where oa.qualified_bid_count = 1
+  `);
+  for (const r of single.rows) {
+    flags.push({ kind: 'single_bidder', severity: 'warn', orderId: r.orderId, label: r.milestone });
+  }
+
+  const pctRow = await client.query(
+    `select coalesce((select value from eworks.settings where key='oversight.award_over_estimate_pct'), '15') as pct`);
+  const pct = Number(pctRow.rows[0].pct) || 15;
+  const over = await client.query(`
+    select o.id as "orderId", o.milestone
+      from eworks.test_orders o join eworks.order_award oa on oa.order_id = o.id
+     where o.estimated_amount_paise is not null
+       and oa.price_paise > o.estimated_amount_paise * (1 + $1/100.0)
+  `, [pct]);
+  for (const r of over.rows) {
+    flags.push({ kind: 'award_over_estimate', severity: 'warn', orderId: r.orderId, label: r.milestone });
+  }
+
+  // Integrity: a released payment with no verified certificate for its order.
+  // DB constraints should make this impossible, so any hit is a red alert.
+  const integrity = await client.query(`
+    select p.order_id as "orderId", o.milestone
+      from eworks.payments p join eworks.test_orders o on o.id = p.order_id
+     where p.status = 'RELEASED'
+       and not exists (
+         select 1 from eworks.certificates c join eworks.test_jobs j on j.id = c.job_id
+          where j.order_id = p.order_id and c.signature_verified)
+  `);
+  for (const r of integrity.rows) {
+    flags.push({ kind: 'payment_without_certificate', severity: 'integrity', orderId: r.orderId, label: r.milestone });
+  }
+
+  return flags;
+}
