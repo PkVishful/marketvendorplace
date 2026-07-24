@@ -678,7 +678,7 @@ export interface ProjectChecklist {
 
 // --- Works tender (gov / public / contractor eligibility) ------------------
 
-export type TenderNoticeStatus = 'DRAFT' | 'PUBLISHED';
+export type TenderNoticeStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'CANCELLED';
 
 export interface TenderEligibilityCriterion {
   id: string;
